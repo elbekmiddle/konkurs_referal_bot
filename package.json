@@ -1,0 +1,27 @@
+{
+	"name": "telegram_bot_referal",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"start": "node index.js",
+		"dev": "nodemon index.js",
+		"db:start": "mongod --dbpath ./data/db",
+		"db:init": "mkdir -p data/db"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "commonjs",
+	"dependencies": {
+		"cloudinary": "^2.8.0",
+		"dotenv": "^17.2.3",
+		"express": "^5.1.0",
+		"mongoose": "^9.0.0",
+		"node-cron": "^4.2.1",
+		"node-telegram-bot-api": "^0.66.0"
+	},
+	"devDependencies": {
+		"nodemon": "^3.1.11"
+	}
+}

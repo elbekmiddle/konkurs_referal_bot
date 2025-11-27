@@ -1,0 +1,9 @@
+{
+  "admin_phone": "+998976637200",
+  "required_channels": [],
+  "point_system": {
+    "referral": 10,
+    "subscription": 5,
+    "daily": 1
+  }
+}
