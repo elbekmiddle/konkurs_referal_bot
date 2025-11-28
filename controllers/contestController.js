@@ -293,23 +293,21 @@ async function saveContest(chatId, contestData) {
 
 		let successMessage = `🎉 *KONKURS MUVAFFAQIYATLI YARATILDI!* 🎉\n\n`
 		successMessage += `📋 *Konkurs ma'lumotlari:*\n`
-		successMessage += `┌──────────────────────────────┐\n`
-		successMessage += `│ 🏷️  *Nomi:* ${contestData.name}\n`
-		successMessage += `│ 💰  *Mukofot:* ${contestData.points} ball\n`
-		successMessage += `│ 🎁  *Bonus:* ${contestData.bonus} ball\n`
-		successMessage += `│ 👑  *G'oliblar soni:* ${contestData.winnersCount} ta\n`
-		successMessage += `│ 📅  *Boshlanish:* ${contestData.startDate.toLocaleDateString()}\n`
-		successMessage += `│ 📅  *Tugash:* ${contestData.endDate.toLocaleDateString()}\n`
-		successMessage += `│ 🆔  *Konkurs ID:* ${contest._id}\n`
+		successMessage += ` 🏷️  *Nomi:* ${contestData.name}\n`
+		successMessage += ` 💰  *Mukofot:* ${contestData.points} ball\n`
+		successMessage += ` 🎁  *Bonus:* ${contestData.bonus} ball\n`
+		successMessage += ` 👑  *G'oliblar soni:* ${contestData.winnersCount} ta\n`
+		successMessage += ` 📅  *Boshlanish:* ${contestData.startDate.toLocaleDateString()}\n`
+		successMessage += ` 📅  *Tugash:* ${contestData.endDate.toLocaleDateString()}\n`
+		successMessage += ` 🆔  *Konkurs ID:* ${contest._id}\n`
 
 		if (contestData.image) {
-			successMessage += `│ 🖼️  *Rasm:* ✅ Yuklandi\n`
+			successMessage += ` 🖼️  *Rasm:* ✅ Yuklandi\n`
 		} else {
-			successMessage += `│ 🖼️  *Rasm:* ❌ Yo'q\n`
+			successMessage += ` 🖼️  *Rasm:* ❌ Yo'q\n`
 		}
 
-		successMessage += `│ 📊  *Holati:* 🟢 Faol\n`
-		successMessage += `└──────────────────────────────┘\n\n`
+		successMessage += ` 📊  *Holati:* 🟢 Faol\n`
 
 		const keyboard = {
 			reply_markup: {
@@ -426,16 +424,14 @@ async function showAdminContestDetail(chatId, contestId) {
 		let message = `🎯 *${contest.name}*\n\n`
 		message += `📝 ${contest.description}\n\n`
 		message += `📊 *Konkurs ma'lumotlari:*\n`
-		message += `┌──────────────────────────────┐\n`
-		message += `│ 💰  *Mukofot:* ${contest.points} ball\n`
-		message += `│ 🎁  *Bonus:* ${contest.bonus} ball\n`
-		message += `│ 👑  *G'oliblar soni:* ${contest.winnersCount} ta\n`
-		message += `│ 📅  *Boshlanish:* ${contest.startDate.toLocaleDateString()}\n`
-		message += `│ 📅  *Tugash:* ${contest.endDate.toLocaleDateString()}\n`
-		message += `│ 👥  *Qatnashuvchilar:* ${participantsCount} ta\n`
-		message += `│ 📊  *Holati:* ${status}\n`
-		message += `│ 🆔  *Konkurs ID:* ${contest._id}\n`
-		message += `└──────────────────────────────┘`
+		message += ` 💰  *Mukofot:* ${contest.points} ball\n`
+		message += ` 🎁  *Bonus:* ${contest.bonus} ball\n`
+		message += ` 👑  *G'oliblar soni:* ${contest.winnersCount} ta\n`
+		message += ` 📅  *Boshlanish:* ${contest.startDate.toLocaleDateString()}\n`
+		message += ` 📅  *Tugash:* ${contest.endDate.toLocaleDateString()}\n`
+		message += ` 👥  *Qatnashuvchilar:* ${participantsCount} ta\n`
+		message += ` 📊  *Holati:* ${status}\n`
+		message += ` 🆔  *Konkurs ID:* ${contest._id}\n`
 
 		const keyboard = {
 			reply_markup: {

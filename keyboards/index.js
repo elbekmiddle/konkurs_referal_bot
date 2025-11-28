@@ -31,7 +31,7 @@ const backKeyboard = {
 const userManagementKeyboard = {
 	reply_markup: {
 		keyboard: [
-			[{ text: '👤 User qidirish' }, { text: '📊 User statistikasi' }],
+			[{ text: '📊 User statistikasi' }],
 			[{ text: "🎯 Ball qo'shish" }, { text: "✏️ Ball o'zgartirish" }],
 			[{ text: '🔙 Orqaga' }],
 		],

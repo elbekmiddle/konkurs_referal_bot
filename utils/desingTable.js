@@ -1,10 +1,7 @@
 class TableDesign {
 	static createLeaderboard(users, currentUserId) {
 		let table = `🏆 <b>TOP FOYDALANUVCHILAR</b>\n\n`
-		table += `┌───┬──────────────────┬────────┬────────┐\n`
 		table += `│<b> # </b>│<b>      Ism        </b>│<b> Taklif </b>│<b>  Ball  </b>│\n`
-		table += `├───┼──────────────────┼────────┼────────┤\n`
-
 		users.forEach((user, index) => {
 			const isCurrentUser = user.chatId === currentUserId
 			const rank = (index + 1).toString().padStart(2)
@@ -27,8 +24,6 @@ class TableDesign {
 				table += `│ ${rankEmoji}${rank} │ ${displayName} │   ${refs}   │   ${points}  │\n`
 			}
 		})
-
-		table += `└───┴──────────────────┴────────┴────────┘\n`
 		return table
 	}
 
@@ -39,13 +34,15 @@ class TableDesign {
 		return `
 🎯 <b>SIZNING STATISTIKANGIZ</b>
 
-┌────────────────────────────┐
-│ 👤 <b>${user.fullName}</b> 
-│ 📊 <b>Reyting:</b> ${rank}
-│ ⭐ <b>Ball:</b> ${user.points}
-│ 👥 <b>Takliflar:</b> ${user.referrals}
-│ 🏆 <b>Daraja:</b> ${this.getLevel(user.points)}
-└────────────────────────────┘
+  👤 <b>${user.fullName}</b> 
+
+  📊 <b>Reyting:</b> ${rank}
+  
+	⭐ <b>Ball:</b> ${user.points}
+  
+	👥 <b>Takliflar:</b> ${user.referrals}
+  
+	🏆 <b>Daraja:</b> ${this.getLevel(user.points)}
 
 ${progressBar}
 ${Math.round(progress)}% to'plangan

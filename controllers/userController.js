@@ -121,29 +121,66 @@ async function showUserStats(chatId) {
 	}
 }
 
-async function showLeaderboard(chatId) {
+// async function showLeaderboard(chatId) {
+// 	try {
+// 		const users = await getLeaderboard(20)
+// 		const currentUser = await User.findOne({ chatId })
+
+// 		if (users.length === 0) {
+// 			await bot.sendMessage(chatId, "📊 Hozircha reyting jadvali bo'sh.")
+// 			return
+// 		}
+
+// 		const leaderboard = formatLeaderboard(users, chatId)
+// 		const userRank = await getUserRank(chatId)
+
+// 		let message = `${leaderboard}\n`
+// 		message += `Sizning o'rningiz: ${userRank}`
+
+// 		await bot.sendMessage(chatId, message, backKeyboard)
+// 	} catch (error) {
+// 		console.error("Leaderboard ko'rsatish xatosi:", error)
+// 		await bot.sendMessage(chatId, "❌ Reyting jadvalini ko'rsatishda xatolik.")
+// 	}
+// }
+
+// controllers/userController.js - showLeaderboard funksiyasini to'g'rilang
+
+const showLeaderboard = async chatId => {
 	try {
-		const users = await getLeaderboard(20)
+		const topUsers = await User.find({})
+			.sort({ points: -1 })
+			.limit(10)
+			.select('username fullName points referrals chatId')
+
 		const currentUser = await User.findOne({ chatId })
 
-		if (users.length === 0) {
-			await bot.sendMessage(chatId, "📊 Hozircha reyting jadvali bo'sh.")
-			return
+		// TO'G'RILANGAN: Markdown emas
+		let message = `🏆 Reyting jadvali\n\n`
+
+		if (topUsers.length === 0) {
+			message += '📊 Hozircha reyting mavjud emas.'
+		} else {
+			topUsers.forEach((user, index) => {
+				const medal = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}.`
+				const isCurrentUser = user.chatId === chatId ? ' 👈' : ''
+				message += `${medal} ${user.fullName} - ${user.points} ball${isCurrentUser}\n`
+			})
 		}
 
-		const leaderboard = formatLeaderboard(users, chatId)
-		const userRank = await getUserRank(chatId)
+		// Foydalanuvchi o'z o'rnini ko'rsatish
+		if (currentUser) {
+			const userRank = (await User.countDocuments({ points: { $gt: currentUser.points } })) + 1
+			message += `\n📊 Sizning o'rningiz: ${userRank}`
+		}
 
-		let message = `${leaderboard}\n`
-		message += `Sizning o'rningiz: ${userRank}`
-
+		// TO'G'RILANGAN: parse_mode ni o'chirdik
 		await bot.sendMessage(chatId, message, backKeyboard)
 	} catch (error) {
-		console.error("Leaderboard ko'rsatish xatosi:", error)
-		await bot.sendMessage(chatId, "❌ Reyting jadvalini ko'rsatishda xatolik.")
+		console.error('❌ Reytingni koʻrsatish xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
-
 async function showReferralInfo(chatId) {
 	try {
 		const user = await User.findOne({ chatId })

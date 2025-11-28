@@ -12,8 +12,7 @@ const mainKeyboard = {
 const userManagementKeyboard = {
 	reply_markup: {
 		keyboard: [
-			[{ text: '👤 User Qidirish' }, { text: '📊 User Statistikasi' }],
-			[{ text: "🎯 Ball Qo'shish" }, { text: "✏️ Ball O'zgartirish" }],
+			[{ text: '📊 User Statistikasi' }],
 			[{ text: '📋 Barcha Userlar' }, { text: '🔙 Orqaga' }],
 		],
 		resize_keyboard: true,

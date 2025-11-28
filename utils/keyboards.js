@@ -18,7 +18,7 @@ const adminKeyboard = {
 			[{ text: '👥 Foydalanuvchilar' }],
 			[{ text: '📊 Statistika' }, { text: '📢 Reklama' }],
 			[{ text: '📺 Kanallar' }, { text: '🎯 Konkurslar' }],
-			[{ text: '📞 Admin raqami' }, { text: '🔙 Asosiy menyu' }],
+			[{ text: '🔙 Asosiy menyu' }],
 		],
 		resize_keyboard: true,
 	},
@@ -38,9 +38,6 @@ const userManagementKeyboard = {
 		inline_keyboard: [
 			[{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' }],
 			[{ text: '🏆 Top foydalanuvchilar', callback_data: 'top_users' }],
-			[{ text: '🆕 Yangi foydalanuvchilar', callback_data: 'recent_users' }],
-			[{ text: '🔍 Foydalanuvchi qidirish', callback_data: 'search_user' }],
-			[{ text: '📊 Foydalanuvchi statistikasi', callback_data: 'user_stats' }],
 			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
 		],
 	},
@@ -71,7 +68,6 @@ const settingsKeyboard = {
 	reply_markup: {
 		inline_keyboard: [
 			[{ text: '🎁 Kunlik bonus sozlash', callback_data: 'set_daily_bonus' }],
-			[{ text: '📞 Admin raqamini sozlash', callback_data: 'set_admin_phone' }],
 			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
 		],
 	},
