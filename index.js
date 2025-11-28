@@ -943,6 +943,21 @@ bot.on('message', async msg => {
 				default:
 					console.log("🔧 Admin noma'lum callback:", data)
 					await bot.sendMessage(chatId, "⚠️ Noma'lum amal.")
+
+				// Foydalanuvchilar ro'yxati callbacklari
+				case 'all_users_1':
+					await adminController.showAllUsers(chatId, 1)
+					break
+				case data.match(/^users_page_/)?.input:
+					const page = parseInt(data.split('_')[2])
+					await adminController.showAllUsers(chatId, page)
+					break
+				case 'top_users':
+					await adminController.showTopUsers(chatId)
+					break
+				case 'recent_users':
+					await adminController.showRecentUsers(chatId)
+					break
 			}
 		} catch (error) {
 			console.error('❌ Callback handler xatosi:', error)

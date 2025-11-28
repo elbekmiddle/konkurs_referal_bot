@@ -18,8 +18,6 @@ const userStates = {}
 
 // ==================== ASOSIY ADMIN FUNKSIYALARI ====================
 
-
-
 const showAdminPanel = async chatId => {
 	try {
 		const user = await User.findOne({ chatId })
@@ -129,339 +127,6 @@ const handleChannelManagement = async chatId => {
 
 const handleSettings = async chatId => {
 	await bot.sendMessage(chatId, '⚙️ Sozlamalar', settingsKeyboard)
-}
-
-const handleCreateContest = async chatId => {
-	try {
-		await contestController.startContestCreation(chatId)
-	} catch (error) {
-		console.error('Admin: Konkurs yaratish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Konkurs yaratishni boshlashda xatolik.')
-	}
-}
-
-const handleNotImplemented = async (chatId, feature) => {
-	await bot.sendMessage(
-		chatId,
-		`🚧 ${feature} bo'limi hozircha ishlab chiqilmoqda...\n\n` +
-			"Tez orada qo'shiladi!",
-		backKeyboard
-	)
-}
-
-// ==================== FOYDALANUVCHI BOSHQARUVI ====================
-
-const handleUserSearch = async chatId => {
-	try {
-		userStates[chatId] = {
-			action: 'search_user',
-			step: 'waiting_query',
-		}
-
-		await bot.sendMessage(
-			chatId,
-			`🔍 *Foydalanuvchi qidirish*\n\n` +
-				`Qidirmoqchi bo'lgan foydalanuvchi ma'lumotini kiriting:\n` +
-				`• Username (@username)\n` +
-				`• Ism\n` +
-				`• Chat ID\n` +
-				`• Telefon raqami`,
-			{
-				parse_mode: 'Markdown',
-				reply_markup: {
-					keyboard: [[{ text: '❌ Bekor qilish' }]],
-					resize_keyboard: true,
-				},
-			}
-		)
-	} catch (error) {
-		console.error('❌ Foydalanuvchi qidirish boshlash xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-	}
-}
-
-const processUserSearch = async (chatId, msg) => {
-	try {
-		const state = userStates[chatId]
-		if (!state || state.action !== 'search_user') return
-
-		// Bekor qilish
-		if (msg.text === '❌ Bekor qilish') {
-			delete userStates[chatId]
-			await bot.sendMessage(chatId, '❌ Qidiruv bekor qilindi.', {
-				reply_markup: adminKeyboard.reply_markup,
-			})
-			return
-		}
-
-		const searchQuery = msg.text.trim()
-
-		if (!searchQuery) {
-			await bot.sendMessage(
-				chatId,
-				'❌ Qidiruv soʻrovi boʻsh boʻlmasligi kerak.'
-			)
-			return
-		}
-
-		// Foydalanuvchilarni qidirish
-		const users = await User.find({
-			$or: [
-				{ username: { $regex: searchQuery, $options: 'i' } },
-				{ fullName: { $regex: searchQuery, $options: 'i' } },
-				{ phoneNumber: { $regex: searchQuery, $options: 'i' } },
-				{ chatId: isNaN(searchQuery) ? null : parseInt(searchQuery) },
-			],
-		}).limit(10)
-
-		if (users.length === 0) {
-			await bot.sendMessage(
-				chatId,
-				`❌ "${searchQuery}" boʻyicha foydalanuvchi topilmadi.`,
-				{
-					reply_markup: adminKeyboard.reply_markup,
-				}
-			)
-			delete userStates[chatId]
-			return
-		}
-
-		let message = `🔍 *Qidiruv natijalari:* "${searchQuery}"\n\n`
-
-		const inline_keyboard = users.map(user => [
-			{
-				text: `${user.fullName} (@${user.username || "Noma'lum"})`,
-				callback_data: `view_user_${user.chatId}`,
-			},
-		])
-
-		inline_keyboard.push([
-			{ text: '🔍 Boshqa qidiruv', callback_data: 'search_user' },
-			{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
-		])
-
-		message += `📊 Topilgan foydalanuvchilar: ${users.length} ta\n\n`
-		message += `Foydalanuvchi haqida batafsil maʼlumot olish uchun quyidagilardan birini tanlang:`
-
-		await bot.sendMessage(chatId, message, {
-			parse_mode: 'Markdown',
-			reply_markup: { inline_keyboard },
-		})
-
-		delete userStates[chatId]
-	} catch (error) {
-		console.error('❌ Foydalanuvchi qidirish jarayoni xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-		delete userStates[chatId]
-	}
-}
-
-const handleUserStats = async chatId => {
-	try {
-		const totalUsers = await User.countDocuments()
-		const subscribedUsers = await User.countDocuments({ isSubscribed: true })
-		const today = new Date()
-		today.setHours(0, 0, 0, 0)
-		const todayUsers = await User.countDocuments({ joinDate: { $gte: today } })
-		const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-		const weekUsers = await User.countDocuments({ joinDate: { $gte: weekAgo } })
-
-		// Top 10 foydalanuvchi
-		const topUsers = await User.find({})
-			.sort({ points: -1 })
-			.limit(10)
-			.select('username fullName points referrals joinDate isSubscribed')
-
-		let message = `📊 *Foydalanuvchi statistikasi*\n\n`
-		message += `👥 Jami foydalanuvchilar: ${totalUsers} ta\n`
-		message += `✅ Obuna boʻlganlar: ${subscribedUsers} ta\n`
-		message += `📈 Bugun qoʻshilgan: ${todayUsers} ta\n`
-		message += `📅 Soʻnggi 7 kun: ${weekUsers} ta\n\n`
-		message += `🏆 *Top 10 foydalanuvchi:*\n\n`
-
-		topUsers.forEach((user, index) => {
-			const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
-			message += `${index + 1}. ${user.fullName}\n`
-			message += `   ⭐ Ball: ${user.points} | 👥 Taklif: ${user.referrals} ta\n`
-			message += `   📅 Qoʻshilgan: ${joinDate}\n`
-			message += `   ${user.isSubscribed ? '✅ Obuna' : '❌ Obuna emas'}\n\n`
-		})
-
-		const inline_keyboard = [
-			[
-				{ text: '🔍 Foydalanuvchi qidirish', callback_data: 'search_user' },
-				{ text: '📥 Excel yuklash', callback_data: 'export_users' },
-			],
-			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
-		]
-
-		await bot.sendMessage(chatId, message, {
-			parse_mode: 'Markdown',
-			reply_markup: { inline_keyboard },
-		})
-	} catch (error) {
-		console.error('❌ Foydalanuvchi statistikasi xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-	}
-}
-
-const showUserDetail = async (chatId, userChatId) => {
-	try {
-		const user = await User.findOne({ chatId: userChatId })
-
-		if (!user) {
-			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-			return
-		}
-
-		const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
-		const lastActive = new Date(user.lastActive).toLocaleDateString('uz-UZ')
-		const status = user.isSubscribed ? '✅ Obuna boʻlgan' : '❌ Obuna boʻlmagan'
-		const adminStatus = user.isAdmin ? '👑 Admin' : '👤 Foydalanuvchi'
-
-		let message = `👤 *Foydalanuvchi maʼlumotlari*\n\n`
-		message += `🆔 Chat ID: ${user.chatId}\n`
-		message += `📛 Ism: ${user.fullName}\n`
-		message += `👤 Username: @${user.username || "Noma'lum"}\n`
-		message += `📞 Telefon: ${user.phoneNumber || "Noma'lum"}\n`
-		message += `⭐ Ball: ${user.points}\n`
-		message += `👥 Taklif qilgan: ${user.referrals} ta\n`
-		message += `📅 Qoʻshilgan sana: ${joinDate}\n`
-		message += `🕐 Oxirgi faollik: ${lastActive}\n`
-		message += `📊 Holat: ${status}\n`
-		message += `🎯 Rol: ${adminStatus}`
-
-		// Referal boʻyicha maʼlumot
-		if (user.refBy) {
-			const referrer = await User.findOne({ chatId: user.refBy })
-			if (referrer) {
-				message += `\n\n👥 *Taklif qilgan shaxs:*\n`
-				message += `📛 ${referrer.fullName} (@${
-					referrer.username || "Noma'lum"
-				})`
-			}
-		}
-
-		const inline_keyboard = [
-			[
-				{
-					text: '✏️ Ball qoʻshish',
-					callback_data: `add_points_${user.chatId}`,
-				},
-				{
-					text: '➖ Ball olib tashlash',
-					callback_data: `remove_points_${user.chatId}`,
-				},
-			],
-			[
-				{
-					text: user.isAdmin ? '👤 Adminlikdan olish' : '👑 Admin qilish',
-					callback_data: `toggle_admin_${user.chatId}`,
-				},
-				{ text: '🗑️ Oʻchirish', callback_data: `delete_user_${user.chatId}` },
-			],
-			[
-				{ text: '🔍 Boshqa qidiruv', callback_data: 'search_user' },
-				{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
-			],
-		]
-
-		await bot.sendMessage(chatId, message, {
-			parse_mode: 'Markdown',
-			reply_markup: { inline_keyboard },
-		})
-	} catch (error) {
-		console.error('❌ Foydalanuvchi tafsilotlarini koʻrsatish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-	}
-}
-
-const handleAddPoints = async (chatId, userChatId) => {
-	try {
-		userStates[chatId] = {
-			action: 'add_points',
-			targetUser: userChatId,
-			step: 'waiting_points',
-		}
-
-		await bot.sendMessage(
-			chatId,
-			`➕ *Ball qoʻshish*\n\n` + `Qancha ball qoʻshmoqchisiz?`,
-			{
-				parse_mode: 'Markdown',
-				reply_markup: {
-					keyboard: [[{ text: '❌ Bekor qilish' }]],
-					resize_keyboard: true,
-				},
-			}
-		)
-	} catch (error) {
-		console.error('❌ Ball qoʻshish boshlash xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-	}
-}
-
-const processAddPoints = async (chatId, msg) => {
-	try {
-		const state = userStates[chatId]
-		if (!state || state.action !== 'add_points') return
-
-		// Bekor qilish
-		if (msg.text === '❌ Bekor qilish') {
-			delete userStates[chatId]
-			await bot.sendMessage(chatId, '❌ Ball qoʻshish bekor qilindi.', {
-				reply_markup: adminKeyboard.reply_markup,
-			})
-			return
-		}
-
-		const points = parseInt(msg.text)
-
-		if (isNaN(points) || points <= 0) {
-			await bot.sendMessage(chatId, '❌ Iltimos, musbat son kiriting.')
-			return
-		}
-
-		const user = await User.findOne({ chatId: state.targetUser })
-		if (!user) {
-			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-			delete userStates[chatId]
-			return
-		}
-
-		user.points += points
-		await user.save()
-
-		await bot.sendMessage(
-			chatId,
-			`✅ *${points} ball qoʻshildi!*\n\n` +
-				`👤 Foydalanuvchi: ${user.fullName}\n` +
-				`🆔 Yangi ball: ${user.points}`,
-			{
-				parse_mode: 'Markdown',
-				reply_markup: adminKeyboard.reply_markup,
-			}
-		)
-
-		// Foydalanuvchiga xabar yuborish
-		try {
-			await bot.sendMessage(
-				state.targetUser,
-				`🎉 *Tabriklaymiz!*\n\n` +
-					`Sizga admin tomonidan ${points} ball qoʻshildi!\n\n` +
-					`💰 Yangi balansingiz: ${user.points} ball`,
-				{ parse_mode: 'Markdown' }
-			)
-		} catch (userError) {
-			console.error('Foydalanuvchiga xabar yuborish xatosi:', userError)
-		}
-
-		delete userStates[chatId]
-	} catch (error) {
-		console.error('❌ Ball qoʻshish jarayoni xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-		delete userStates[chatId]
-	}
 }
 
 // ==================== REKLAMA TIZIMI ====================
@@ -694,6 +359,214 @@ const cancelBroadcast = async chatId => {
 	}
 }
 
+const handleCreateContest = async chatId => {
+	try {
+		await contestController.startContestCreation(chatId)
+	} catch (error) {
+		console.error('Admin: Konkurs yaratish xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Konkurs yaratishni boshlashda xatolik.')
+	}
+}
+
+const handleNotImplemented = async (chatId, feature) => {
+	await bot.sendMessage(
+		chatId,
+		`🚧 ${feature} bo'limi hozircha ishlab chiqilmoqda...\n\n` +
+			"Tez orada qo'shiladi!",
+		backKeyboard
+	)
+}
+
+// ==================== FOYDALANUVCHILAR RO'YXATI ====================
+
+const showAllUsers = async (chatId, page = 1) => {
+	try {
+		const pageSize = 10 // Har sahifada 10 ta foydalanuvchi
+		const skip = (page - 1) * pageSize
+
+		// Foydalanuvchilarni olish (eng yangilari birinchi)
+		const users = await User.find({})
+			.sort({ joinDate: -1 })
+			.skip(skip)
+			.limit(pageSize)
+			.select('username fullName points referrals joinDate isSubscribed chatId')
+
+		const totalUsers = await User.countDocuments()
+		const totalPages = Math.ceil(totalUsers / pageSize)
+
+		let message = `👥 *Barcha foydalanuvchilar*\n\n`
+		message += `📊 Jami: ${totalUsers} ta foydalanuvchi\n`
+		message += `📄 Sahifa: ${page}/${totalPages}\n\n`
+
+		if (users.length === 0) {
+			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
+		} else {
+			users.forEach((user, index) => {
+				const userNumber = skip + index + 1
+				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
+				const status = user.isSubscribed ? '✅' : '❌'
+
+				message += `${userNumber}. ${user.fullName}\n`
+				message += `   👤 @${user.username || "Noma'lum"}\n`
+				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
+				message += `   📅 ${joinDate} | ${status}\n\n`
+			})
+		}
+
+		// Keyboard yaratish
+		const inline_keyboard = []
+
+		// Foydalanuvchilar tugmalari
+		users.forEach(user => {
+			inline_keyboard.push([
+				{
+					text: `${user.fullName} (${user.points}⭐)`,
+					callback_data: `view_user_${user.chatId}`,
+				},
+			])
+		})
+
+		// Navigatsiya tugmalari
+		const navButtons = []
+
+		if (page > 1) {
+			navButtons.push({
+				text: '⬅️ Oldingi',
+				callback_data: `users_page_${page - 1}`,
+			})
+		}
+
+		navButtons.push({
+			text: `📄 ${page}/${totalPages}`,
+			callback_data: 'current_page',
+		})
+
+		if (page < totalPages) {
+			navButtons.push({
+				text: 'Keyingi ➡️',
+				callback_data: `users_page_${page + 1}`,
+			})
+		}
+
+		if (navButtons.length > 0) {
+			inline_keyboard.push(navButtons)
+		}
+
+		// Boshqa funksiyalar tugmalari
+		inline_keyboard.push([
+			{ text: '🔍 Qidirish', callback_data: 'search_user' },
+			{ text: '📊 Statistika', callback_data: 'user_stats' },
+		])
+
+		inline_keyboard.push([
+			{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
+		])
+
+		await bot.sendMessage(chatId, message, {
+			parse_mode: 'Markdown',
+			reply_markup: { inline_keyboard },
+		})
+	} catch (error) {
+		console.error('❌ Foydalanuvchilar roʻyxatini koʻrsatish xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
+}
+
+const showTopUsers = async chatId => {
+	try {
+		// Top 20 foydalanuvchi (ballar bo'yicha)
+		const topUsers = await User.find({})
+			.sort({ points: -1 })
+			.limit(20)
+			.select('username fullName points referrals joinDate isSubscribed')
+
+		let message = `🏆 *Top 20 foydalanuvchi*\n\n`
+
+		if (topUsers.length === 0) {
+			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
+		} else {
+			topUsers.forEach((user, index) => {
+				const medal = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}.`
+				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
+				const status = user.isSubscribed ? '✅' : '❌'
+
+				message += `${medal} ${user.fullName}\n`
+				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
+				message += `   📅 ${joinDate} | ${status}\n\n`
+			})
+		}
+
+		const inline_keyboard = [
+			[
+				{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' },
+				{ text: '🔍 Qidirish', callback_data: 'search_user' },
+			],
+			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
+		]
+
+		await bot.sendMessage(chatId, message, {
+			parse_mode: 'Markdown',
+			reply_markup: { inline_keyboard },
+		})
+	} catch (error) {
+		console.error('❌ Top foydalanuvchilarni koʻrsatish xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
+}
+
+const showRecentUsers = async chatId => {
+	try {
+		// So'nggi 1 haftada qo'shilgan foydalanuvchilar
+		const weekAgo = new Date()
+		weekAgo.setDate(weekAgo.getDate() - 7)
+
+		const recentUsers = await User.find({ joinDate: { $gte: weekAgo } })
+			.sort({ joinDate: -1 })
+			.limit(15)
+			.select('username fullName points referrals joinDate isSubscribed')
+
+		const totalRecent = await User.countDocuments({
+			joinDate: { $gte: weekAgo },
+		})
+
+		let message = `🆕 *So'nggi qo'shilgan foydalanuvchilar*\n\n`
+		message += `📅 So'nggi 7 kunda: ${totalRecent} ta\n\n`
+
+		if (recentUsers.length === 0) {
+			message += "❌ So'nggi 7 kunda yangi foydalanuvchilar qo'shilmagan."
+		} else {
+			recentUsers.forEach((user, index) => {
+				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
+				const status = user.isSubscribed ? '✅' : '❌'
+
+				message += `${index + 1}. ${user.fullName}\n`
+				message += `   👤 @${user.username || "Noma'lum"}\n`
+				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
+				message += `   📅 ${joinDate} | ${status}\n\n`
+			})
+		}
+
+		const inline_keyboard = [
+			[
+				{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' },
+				{ text: '🏆 Top foydalanuvchilar', callback_data: 'top_users' },
+			],
+			[
+				{ text: '🔍 Qidirish', callback_data: 'search_user' },
+				{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
+			],
+		]
+
+		await bot.sendMessage(chatId, message, {
+			parse_mode: 'Markdown',
+			reply_markup: { inline_keyboard },
+		})
+	} catch (error) {
+		console.error('❌ Yangi foydalanuvchilarni koʻrsatish xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
+}
+
 // ==================== MODULE EXPORTS ====================
 
 module.exports = {
@@ -707,18 +580,12 @@ module.exports = {
 	handleBroadcast,
 	handleCreateContest,
 	handleNotImplemented,
-	// Foydalanuvchi boshqaruvi
-	handleUserSearch,
-	processUserSearch,
-	handleUserStats,
-	showUserDetail,
-	handleAddPoints,
-	processAddPoints,
 	// Reklama
 	processBroadcast,
 	sendBroadcast,
 	cancelBroadcast,
+	// Foydalanuvchilar ro'yxati
+	showAllUsers,
+	showTopUsers,
+	showRecentUsers,
 }
-
-
-
