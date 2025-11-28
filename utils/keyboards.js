@@ -1,3 +1,4 @@
+// Asosiy menyu
 const mainMenuKeyboard = {
 	reply_markup: {
 		keyboard: [
@@ -6,12 +7,13 @@ const mainMenuKeyboard = {
 				{ text: "👥 Do'stlarni taklif qilish" },
 			],
 			[{ text: '🎯 Konkurslar' }, { text: '🏆 Reyting' }],
-			[{ text: '🎁 Kunlik bonus' }, { text: 'ℹ️ Yordam' }],
+			[{ text: '⭐️ Kunlik bonus' }, { text: 'ℹ️ Yordam' }],
 		],
 		resize_keyboard: true,
 	},
 }
 
+// Admin keyboard
 const adminKeyboard = {
 	reply_markup: {
 		keyboard: [
@@ -24,6 +26,7 @@ const adminKeyboard = {
 	},
 }
 
+// Orqaga tugmasi
 const backKeyboard = {
 	reply_markup: {
 		keyboard: [[{ text: '🔙 Orqaga' }]],
@@ -58,7 +61,6 @@ const channelManagementKeyboard = {
 		inline_keyboard: [
 			[{ text: "➕ Kanal qo'shish", callback_data: 'add_channel' }],
 			[{ text: "📋 Kanallar ro'yxati", callback_data: 'list_channels' }],
-			[{ text: "🗑️ Kanalni o'chirish", callback_data: 'delete_channel' }],
 			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
 		],
 	},

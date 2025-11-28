@@ -13,12 +13,16 @@ const channelSchema = new mongoose.Schema({
 	},
 	channelId: {
 		type: String,
-		required: true,
-		unique: true,
+		required: false,
+		trim: true,
 	},
 	isActive: {
 		type: Boolean,
 		default: true,
+	},
+	requiresSubscription: {
+		type: Boolean,
+		default: true, // Obuna talab qilinadimi
 	},
 	createdAt: {
 		type: Date,
@@ -26,8 +30,7 @@ const channelSchema = new mongoose.Schema({
 	},
 })
 
-// Index qo'shamiz
-channelSchema.index({ channelId: 1 }, { unique: true })
+// Faqat bitta index qo'shamiz
 channelSchema.index({ isActive: 1 })
 
 module.exports = mongoose.model('Channel', channelSchema)
