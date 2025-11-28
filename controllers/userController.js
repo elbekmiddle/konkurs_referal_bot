@@ -1,220 +1,237 @@
 const User = require('../models/User')
-const Contest = require('../models/Contest')
 const Channel = require('../models/Channel')
+const { mainMenuKeyboard, backKeyboard } = require('../utils/keyboards')
 const {
 	formatUserStats,
+	getUserRank,
+	getLeaderboard,
 	formatLeaderboard,
-	formatContest,
+	checkUserSubscription,
 } = require('../utils/helpers')
-const {
-	subscriptionKeyboard,
-	contestParticipationKeyboard,
-	mainKeyboard,
-} = require('../keyboards')
 
-const UserController = {
-	async handleStart(chatId, userData, startParam, bot) {
-		try {
-			let user = await User.findOne({ chatId })
+const bot = require('./bot')
 
-			if (!user) {
-				user = new User({
-					chatId,
-					username: userData.username,
-					firstName: userData.first_name,
-					lastName: userData.last_name,
-					joinDate: new Date(),
-					isAdmin: process.env.ADMIN_IDS.split(',').includes(chatId.toString()),
-				})
+async function showMainMenu(chatId) {
+	const isSubscribed = await checkUserSubscription(chatId)
 
-				// Referal tizimi
-				if (startParam) {
-					const referrer = await User.findOne({ chatId: parseInt(startParam) })
-					if (referrer) {
-						user.refBy = referrer.chatId
-						referrer.referrals += 1
-						referrer.points += 10
-						await referrer.save()
-					}
-				}
+	if (!isSubscribed) {
+		await showChannelsForSubscription(chatId)
+		return
+	}
 
-				await user.save()
-			}
-
-			// Kanallarga obuna bo'lishni tekshirish
-			const channels = await Channel.find({ isActive: true })
-			let subscriptionMessage = `🎉 Xush kelibsiz, ${user.firstName}!\n\n`
-
-			if (channels.length > 0 && !user.isSubscribed) {
-				subscriptionMessage += `⚠️ Iltimos, quyidagi kanallarga obuna bo'ling:\n\n`
-				channels.forEach(channel => {
-					subscriptionMessage += `➡️ ${channel.channelName}\n🔗 ${channel.channelLink}\n\n`
-				})
-
-				await bot.sendMessage(chatId, subscriptionMessage, subscriptionKeyboard)
-			} else {
-				await bot.sendMessage(
-					chatId,
-					`🎉 Xush kelibsiz, ${user.firstName}!`,
-					mainKeyboard
-				)
-			}
-		} catch (error) {
-			console.error('Start handler error:', error)
-			await bot.sendMessage(
-				chatId,
-				"❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
-			)
-		}
-	},
-
-	async handleSubscriptionCheck(chatId, bot) {
-		try {
-			const user = await User.findOne({ chatId })
-			if (!user) return
-
-			// Bu yerda haqiqiy tekshiruv qo'shishingiz kerak
-			// Hozircha avtomatik tasdiqlaymiz
-			user.isSubscribed = true
-			await user.save()
-
-			await bot.sendMessage(
-				chatId,
-				"✅ Obuna tasdiqlandi! Endi botdan to'liq foydalanishingiz mumkin.",
-				mainKeyboard
-			)
-		} catch (error) {
-			await bot.sendMessage(chatId, '❌ Tasdiqlashda xato')
-		}
-	},
-
-	async handleStatistics(chatId, bot) {
-		try {
-			const user = await User.findOne({ chatId })
-			if (!user) return
-
-			// Reytingni hisoblash
-			const allUsers = await User.find().sort({ points: -1 })
-			const rank = allUsers.findIndex(u => u.chatId === chatId) + 1
-
-			const stats = formatUserStats(user, rank)
-			await bot.sendMessage(chatId, stats)
-		} catch (error) {
-			await bot.sendMessage(chatId, '❌ Statistika yuklashda xato')
-		}
-	},
-
-	async handleLeaderboard(chatId, bot) {
-		try {
-			const users = await User.find().sort({ points: -1 }).limit(20)
-			const leaderboard = formatLeaderboard(users, chatId)
-			await bot.sendMessage(chatId, leaderboard)
-		} catch (error) {
-			await bot.sendMessage(chatId, '❌ Reyting yuklashda xato')
-		}
-	},
-
-	async handleReferral(chatId, bot) {
-		try {
-			const referralLink = `https://t.me/${
-				(await bot.getMe()).username
-			}?start=${chatId}`
-
-			const message = `👥 Do'stlaringizni taklif qiling va ball to'plang!
-
-🔗 Sizning taklif havolangiz:
-${referralLink}
-
-📊 Har bir taklif qilgan do'stingiz uchun sizga:
-✅ 10 ball beriladi
-
-📈 Ko'proq do'st taklif qiling va reytingda yuqori o'rinlarni egallang!`
-
-			await bot.sendMessage(chatId, message)
-		} catch (error) {
-			await bot.sendMessage(chatId, '❌ Referal havola yaratishda xato')
-		}
-	},
-
-	async handleDailyBonus(chatId, bot) {
-		try {
-			const user = await User.findOne({ chatId })
-			if (!user) return
-
-			const today = new Date().toDateString()
-			const lastActiveDate = user.lastActive.toDateString()
-
-			if (lastActiveDate === today && user.dailyBonusClaimed) {
-				await bot.sendMessage(
-					chatId,
-					"❌ Siz bugun kunlik bonusni olgansiz. Ertaga qayta urinib ko'ring."
-				)
-				return
-			}
-
-			const bonusPoints = parseInt(process.env.DAILY_BONUS_POINTS) || 50
-			user.points += bonusPoints
-			user.dailyBonusClaimed = true
-			user.lastActive = new Date()
-			await user.save()
-
-			await bot.sendMessage(
-				chatId,
-				`✅ Kunlik bonus! Sizga ${bonusPoints} ball qo'shildi.\n💰 Jami ball: ${user.points}`
-			)
-		} catch (error) {
-			await bot.sendMessage(chatId, '❌ Bonus berishda xato')
-		}
-	},
-
-	async handleContests(chatId, bot) {
-		try {
-			const contests = await Contest.find({ isActive: true })
-
-			if (contests.length === 0) {
-				await bot.sendMessage(
-					chatId,
-					'🎯 Hozircha aktiv konkurslar mavjud emas.'
-				)
-				return
-			}
-
-			for (const contest of contests) {
-				const contestInfo = formatContest(contest)
-				await bot.sendMessage(chatId, contestInfo, contestParticipationKeyboard)
-			}
-		} catch (error) {
-			await bot.sendMessage(chatId, '❌ Konkurslar yuklashda xato')
-		}
-	},
-
-	async handleContestParticipation(chatId, contestId, bot) {
-		try {
-			const contest = await Contest.findById(contestId)
-			if (!contest) return
-
-			const user = await User.findOne({ chatId })
-			if (!user) return
-
-			if (contest.participants.includes(chatId)) {
-				await bot.sendMessage(
-					chatId,
-					'❌ Siz allaqachon bu konkursda qatnashgansiz.'
-				)
-				return
-			}
-
-			contest.participants.push(chatId)
-			await contest.save()
-
-			await bot.sendMessage(
-				chatId,
-				`✅ Tabriklaymiz! Siz "${contest.name}" konkursida qatnashdingiz!\n\n📊 Konkurs tugagach, g'oliblar e'lon qilinadi.`
-			)
-		} catch (error) {
-			await bot.sendMessage(chatId, '❌ Qatnashishda xato')
-		}
-	},
+	await bot.sendMessage(chatId, '🎉 Asosiy menyu', mainMenuKeyboard)
 }
 
-module.exports = UserController
+async function showChannelsForSubscription(chatId) {
+	try {
+		const channels = await Channel.find({ isActive: true })
+
+		if (channels.length === 0) {
+			await bot.sendMessage(
+				chatId,
+				'✅ Hozircha majburiy kanallar mavjud emas.\n' +
+					"Siz botdan to'liq foydalanishingiz mumkin!",
+				mainMenuKeyboard
+			)
+			return
+		}
+
+		const keyboard = {
+			reply_markup: {
+				inline_keyboard: [],
+			},
+		}
+
+		channels.forEach(channel => {
+			keyboard.reply_markup.inline_keyboard.push([
+				{
+					text: `📺 ${channel.name}`,
+					url: channel.link,
+				},
+			])
+		})
+
+		keyboard.reply_markup.inline_keyboard.push([
+			{
+				text: "✅ Obuna bo'ldim",
+				callback_data: 'check_subscription',
+			},
+		])
+
+		let message = `🎯 Iltimos, quyidagi kanallarga obuna bo'ling:\n\n`
+		channels.forEach(channel => {
+			message += `• ${channel.name}\n`
+		})
+		message += `\nObuna bo'lgach "✅ Obuna bo'ldim" tugmasini bosing.`
+
+		await bot.sendMessage(chatId, message, keyboard)
+	} catch (error) {
+		console.error("Kanallarni ko'rsatish xatosi:", error)
+		await bot.sendMessage(
+			chatId,
+			"❌ Kanallarni yuklashda xatolik. Iltimos, keyinroq urinib ko'ring.",
+			backKeyboard
+		)
+	}
+}
+
+async function handleCheckSubscription(chatId) {
+	try {
+		const user = await User.findOne({ chatId })
+		if (!user) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+			return
+		}
+
+		// Hozircha oddiy tekshirish - keyin haqiqiy tekshiruv qo'shamiz
+		user.isSubscribed = true
+		await user.save()
+
+		await bot.sendMessage(
+			chatId,
+			"✅ Tabriklaymiz! Siz barcha kanallarga obuna bo'ldingiz.\n\n" +
+				'🎉 Endi botning barcha funksiyalaridan foydalanishingiz mumkin!',
+			mainMenuKeyboard
+		)
+	} catch (error) {
+		console.error('Subscription tekshirish xatosi:', error)
+		await bot.sendMessage(
+			chatId,
+			"❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.",
+			backKeyboard
+		)
+	}
+}
+
+async function showUserStats(chatId) {
+	try {
+		const user = await User.findOne({ chatId })
+		if (!user) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+			return
+		}
+
+		const rank = await getUserRank(chatId)
+		const stats = formatUserStats(user, rank)
+
+		await bot.sendMessage(chatId, stats, backKeyboard)
+	} catch (error) {
+		console.error("Statistika ko'rsatish xatosi:", error)
+		await bot.sendMessage(chatId, "❌ Statistika ko'rsatishda xatolik.")
+	}
+}
+
+async function showLeaderboard(chatId) {
+	try {
+		const users = await getLeaderboard(20)
+		const currentUser = await User.findOne({ chatId })
+
+		if (users.length === 0) {
+			await bot.sendMessage(chatId, "📊 Hozircha reyting jadvali bo'sh.")
+			return
+		}
+
+		const leaderboard = formatLeaderboard(users, chatId)
+		const userRank = await getUserRank(chatId)
+
+		let message = `${leaderboard}\n`
+		message += `Sizning o'rningiz: ${userRank}`
+
+		await bot.sendMessage(chatId, message, backKeyboard)
+	} catch (error) {
+		console.error("Leaderboard ko'rsatish xatosi:", error)
+		await bot.sendMessage(chatId, "❌ Reyting jadvalini ko'rsatishda xatolik.")
+	}
+}
+
+async function showReferralInfo(chatId) {
+	try {
+		const user = await User.findOne({ chatId })
+		const referrals = await User.find({ refBy: chatId })
+
+		let message = `👥 Taklif qilingan do'stlar\n\n`
+
+		if (referrals.length === 0) {
+			message += `Hozircha siz hech kimni taklif qilmagansiz.\n\n`
+		} else {
+			referrals.forEach((ref, index) => {
+				message += `${index + 1}. ${ref.fullName} (@${
+					ref.username || "Noma'lum"
+				})\n`
+			})
+			message += `\n`
+		}
+
+		message += `🔗 Sizning taklif havolangiz:\n`
+		message += `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}\n\n`
+		message += `🎯 Jami takliflar: ${user.referrals} ta\n`
+		message += `⭐ Taklif ballari: ${user.referrals * 10} ball`
+
+		const keyboard = {
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{
+							text: '📤 Havolani ulashish',
+							url: `https://t.me/share/url?url=https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`,
+						},
+					],
+					[{ text: '◀️ Orqaga', callback_data: 'main_menu' }],
+				],
+			},
+		}
+
+		await bot.sendMessage(chatId, message, keyboard)
+	} catch (error) {
+		console.error("Referal info ko'rsatish xatosi:", error)
+		await bot.sendMessage(
+			chatId,
+			"❌ Referal ma'lumotlarini ko'rsatishda xatolik."
+		)
+	}
+}
+
+async function handleDailyBonus(chatId) {
+	try {
+		const user = await User.findOne({ chatId })
+
+		if (!user) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+			return
+		}
+
+		if (user.dailyBonusClaimed) {
+			await bot.sendMessage(
+				chatId,
+				"❌ Siz bugungi kunlik bonusni olgansiz. Ertaga qayta urinib ko'ring.",
+				backKeyboard
+			)
+			return
+		}
+
+		const bonusPoints = parseInt(process.env.DAILY_BONUS_POINTS) || 5
+		user.points += bonusPoints
+		user.dailyBonusClaimed = true
+		await user.save()
+
+		await bot.sendMessage(
+			chatId,
+			`🎉 Tabriklaymiz! Siz ${bonusPoints} ball bonus oldingiz!\n\n` +
+				`💰 Jami ball: ${user.points}`,
+			backKeyboard
+		)
+	} catch (error) {
+		console.error('Kunlik bonus xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Kunlik bonus berishda xatolik.')
+	}
+}
+
+module.exports = {
+	showMainMenu,
+	showChannelsForSubscription,
+	handleCheckSubscription,
+	showUserStats,
+	showLeaderboard,
+	showReferralInfo,
+	handleDailyBonus,
+}

@@ -1,673 +1,984 @@
-require('dotenv').config()
-const TelegramBot = require('node-telegram-bot-api')
-const mongoose = require('mongoose')
+	// require('dotenv').config()
+	// const bot = require('./controllers/bot')
+	// const connectDB = require('./config/database')
 
-// Models
-const User = require('./models/User')
-const Contest = require('./models/Contest')
-const Channel = require('./models/Channel')
+	// // Modellar
+	// const User = require('./models/User')
 
-// Controllers
-const AdminController = require('./controllers/adminController')
+	// // Controllerlar
+	// const userController = require('./controllers/userController')
+	// const adminController = require('./controllers/adminController')
+	// const contestController = require('./controllers/contestController')
+	// const channelController = require('./controllers/channelController')
 
-// Services
-const ContestWizard = require('./services/contestWizard')
-const ContestScheduler = require('./services/contestScheduler')
-const ChannelWizard = require('./services/channelWizard')
 
-// Keyboards
-const { mainKeyboard } = require('./keyboards/adminKeyboards')
-const { contestListKeyboard } = require('./keyboards/contestKeyboards')
-const { channelListKeyboard } = require('./keyboards/channelKeyboards')
+	// // Ma'lumotlar bazasiga ulanish
+	// connectDB()
 
-// Bot initialization
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true })
+	// console.log('🤖 Bot ishga tushdi...')
 
-// MongoDB connection
-mongoose
-	.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/telegram_bot')
-	.then(() => {
-		console.log('✅ MongoDB ga ulandi')
-	})
-	.catch(err => {
-		console.error('❌ MongoDB ulanish xatosi:', err)
-		process.exit(1)
-	})
+	// // ==================== START COMMAND ====================
 
-// Contest scheduler ni ishga tushirish
-ContestScheduler.initialize()
-	.then(() => {
-		console.log('✅ Konkurs scheduler ishga tushdi')
-	})
-	.catch(error => {
-		console.error('❌ Konkurs scheduler ishga tushmadi:', error)
-	})
+	// bot.onText(/\/start/, async (msg, match) => {
+	// 	const chatId = msg.chat.id
+	// 	const startParam = match[1]
 
-// ==================== START COMMAND ====================
-bot.onText(/\/start/, async msg => {
-	const chatId = msg.chat.id
+	// 	console.log(`🚀 Start command: chatId=${chatId}, startParam=${startParam}`)
 
-	console.log(`Start command: ${chatId}`)
+	// 	try {
+	// 		let user = await User.findOne({ chatId })
 
-	try {
-		// Check if user is admin
-		const adminIds = process.env.ADMIN_IDS
-			? process.env.ADMIN_IDS.split(',').map(id => parseInt(id.trim()))
-			: []
+	// 		if (!user) {
+	// 			user = new User({
+	// 				chatId,
+	// 				username: msg.chat.username || "Noma'lum",
+	// 				fullName: `${msg.chat.first_name || ''} ${
+	// 					msg.chat.last_name || ''
+	// 				}`.trim(),
+	// 				joinDate: new Date(),
+	// 				isSubscribed: false,
+	// 				refBy: startParam ? parseInt(startParam) : null,
+	// 				referrals: 0,
+	// 				points: 0,
+	// 				lastActive: new Date(),
+	// 				isAdmin: process.env.ADMIN_IDS.includes(chatId.toString()),
+	// 			})
 
-		if (adminIds.length === 0) {
-			console.error('❌ ADMIN_IDS not set in environment variables')
-			await bot.sendMessage(
-				chatId,
-				"❌ Server xatosi. Iltimos, administrator bilan bog'laning."
-			)
-			return
-		}
+	// 			await user.save()
+	// 		} else {
+	// 			user.lastActive = new Date()
+	// 			await user.save()
+	// 		}
 
-		if (!adminIds.includes(chatId)) {
-			await bot.sendMessage(chatId, '❌ Siz admin emassiz!')
-			return
-		}
+	// 		if (user.isAdmin) {
+	// 			await adminController.showAdminPanel(chatId)
+	// 			return
+	// 		}
 
-		// Create or update admin user
-		let user = await User.findOne({ chatId })
-		if (!user) {
-			user = new User({
-				chatId,
-				username: msg.from.username,
-				firstName: msg.from.first_name,
-				lastName: msg.from.last_name,
-				isAdmin: true,
-				joinDate: new Date(),
-			})
-			await user.save()
-			console.log(`✅ Yangi admin qo'shildi: ${chatId}`)
-		}
+	// 		await userController.showMainMenu(chatId)
+	// 	} catch (error) {
+	// 		console.error('❌ Start command xatosi:', error)
+	// 		await bot.sendMessage(
+	// 			chatId,
+	// 			"❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
+	// 		)
+	// 	}
+	// })
 
-		// Show admin panel
-		await AdminController.showMainPanel(chatId, bot)
-	} catch (error) {
-		console.error('Start handler error:', error)
-		await bot.sendMessage(
-			chatId,
-			"❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
-		)
-	}
-})
+	// // ==================== XABARLARNI QAYTA ISHLASH ====================
 
-// ==================== CALLBACK QUERY HANDLER ====================
-bot.on('callback_query', async callbackQuery => {
-	const chatId = callbackQuery.from.id
-	const data = callbackQuery.data
-	const messageId = callbackQuery.message?.message_id
+	// bot.on('message', async msg => {
+	// 	const chatId = msg.chat.id
+	// 	const text = msg.text
 
-	console.log(`Callback received: ${data} from ${chatId}`)
+	// 	try {
+	// 		const user = await User.findOne({ chatId })
+	// 		if (!user) return
 
-	try {
-		// ========== ADMIN NAVIGATION ==========
-		if (data === 'back_to_admin') {
-			await AdminController.showMainPanel(chatId, bot)
-		}
+	// 		if (user.isAdmin) {
+	// 			// 1. Kanal qo'shish holati
+	// 			const channelState = channelController.userStates[chatId]
+	// 			if (channelState && channelState.action === 'add_channel') {
+	// 				console.log('📺 Kanal qoʻshish jarayoni...')
+	// 				await channelController.processAddChannel(chatId, msg)
+	// 				return
+	// 			}
 
-		// ========== CONTEST MANAGEMENT HANDLERS ==========
-		// Konkurs yaratish
-		else if (data === 'create_contest') {
-			await AdminController.handleCreateContest(chatId, bot)
-		}
-		// Konkurslar ro'yxatiga qaytish
-		else if (data === 'back_to_contests') {
-			await AdminController.showContestManagement(chatId, bot)
-		}
-		// Konkurs sahifasini ko'rish
-		else if (data.startsWith('view_contest_')) {
-			const contestId = data.replace('view_contest_', '')
-			await AdminController.showContestDetails(chatId, contestId, bot)
-		}
-		// Konkurs tahrirlash sahifasi
-		else if (data.startsWith('edit_contest_')) {
-			const contestId = data.replace('edit_contest_', '')
-			await AdminController.showContestEditOptions(chatId, contestId, bot)
-		}
-		// Konkurs maydonlarini tahrirlash
-		else if (
-			data.startsWith('edit_name_') ||
-			data.startsWith('edit_desc_') ||
-			data.startsWith('edit_points_') ||
-			data.startsWith('edit_bonus_') ||
-			data.startsWith('edit_start_') ||
-			data.startsWith('edit_end_')
-		) {
-			const parts = data.split('_')
-			const field = parts[1] // name, desc, points, etc
-			const contestId = parts[2]
-			await AdminController.handleEditContestField(
-				chatId,
-				contestId,
-				field,
-				bot
-			)
-		}
-		// Konkurs holatini o'zgartirish
-		else if (data.startsWith('toggle_status_')) {
-			const contestId = data.replace('toggle_status_', '')
-			await AdminController.toggleContestStatus(chatId, contestId, bot)
-		}
-		// Rasm yuklash
-		else if (data.startsWith('upload_contest_image_')) {
-			const contestId = data.replace('upload_contest_image_', '')
-			await AdminController.handleImageUpload(chatId, contestId, bot)
-		}
-		// Rasmni o'chirish
-		else if (data.startsWith('delete_contest_image_')) {
-			const contestId = data.replace('delete_contest_image_', '')
-			await AdminController.deleteContestImage(chatId, contestId, bot)
-		}
-		// Konkurs o'chirish tasdiqlash
-		else if (data.startsWith('delete_contest_confirm_')) {
-			const contestId = data.replace('delete_contest_confirm_', '')
-			await AdminController.showDeleteConfirm(chatId, contestId, bot)
-		}
-		// Konkurs o'chirish
-		else if (data.startsWith('delete_contest_')) {
-			const contestId = data.replace('delete_contest_', '')
-			await AdminController.deleteContestById(chatId, contestId, bot)
-		}
-		// Ishtirokchilar
-		else if (data.startsWith('contest_participants_')) {
-			const contestId = data.replace('contest_participants_', '')
-			await AdminController.showContestParticipants(chatId, contestId, bot)
-		}
-		// G'oliblar
-		else if (data.startsWith('contest_winners_')) {
-			const contestId = data.replace('contest_winners_', '')
-			await AdminController.showContestWinners(chatId, contestId, bot)
-		}
-		// Konkurs pagination
-		else if (data.startsWith('contest_page_')) {
-			const page = parseInt(data.replace('contest_page_', ''))
-			const contests = await Contest.find().sort({ createdAt: -1 })
-			const message = `📋 **Konkurslar Ro'yxati**\n\nJami: ${contests.length} ta konkurs\n\nQuyidagi konkurslardan birini tanlang:`
-			await bot.editMessageText(message, {
-				chat_id: chatId,
-				message_id: messageId,
-				parse_mode: 'Markdown',
-				reply_markup: contestListKeyboard(contests, page).reply_markup,
-			})
-		}
+	// 			// 2. Kanal tahrirlash holati
+	// 			if (channelState && channelState.action === 'edit_channel') {
+	// 				console.log('✏️ Kanal tahrirlash jarayoni...')
+	// 				await channelController.processEditChannel(chatId, msg)
+	// 				return
+	// 			}
 
-		// ========== CHANNEL MANAGEMENT HANDLERS ==========
-		// Kanal yaratish
-		else if (data === 'create_channel') {
-			await AdminController.handleCreateChannel(chatId, bot)
-		}
-		// Kanallar ro'yxatiga qaytish
-		else if (data === 'back_to_channels') {
-			await AdminController.showChannelManagement(chatId, bot)
-		}
-		// Kanal sahifasini ko'rish
-		else if (data.startsWith('view_channel_')) {
-			const channelId = data.replace('view_channel_', '')
-			await AdminController.showChannelDetails(chatId, channelId, bot)
-		}
-		// Kanal tahrirlash sahifasi
-		else if (data.startsWith('edit_channel_')) {
-			const channelId = data.replace('edit_channel_', '')
-			await AdminController.showChannelEditOptions(chatId, channelId, bot)
-		}
-		// Kanal maydonlarini tahrirlash
-		else if (
-			data.startsWith('edit_channel_name_') ||
-			data.startsWith('edit_channel_link_')
-		) {
-			const parts = data.split('_')
-			const field = parts[2] // name, link
-			const channelId = parts[3]
-			await AdminController.handleEditChannelField(
-				chatId,
-				channelId,
-				field,
-				bot
-			)
-		}
-		// Kanal holatini o'zgartirish
-		else if (data.startsWith('toggle_channel_status_')) {
-			const channelId = data.replace('toggle_channel_status_', '')
-			await AdminController.toggleChannelStatus(chatId, channelId, bot)
-		}
-		// Kanal o'chirish tasdiqlash
-		else if (data.startsWith('delete_channel_confirm_')) {
-			const channelId = data.replace('delete_channel_confirm_', '')
-			await AdminController.showDeleteChannelConfirm(chatId, channelId, bot)
-		}
-		// Kanal o'chirish
-		else if (data.startsWith('delete_channel_')) {
-			const channelId = data.replace('delete_channel_', '')
-			await AdminController.deleteChannelById(chatId, channelId, bot)
-		}
-		// Channel pagination
-		else if (data.startsWith('channel_page_')) {
-			const page = parseInt(data.replace('channel_page_', ''))
-			const channels = await Channel.find().sort({ createdAt: -1 })
-			const message = `📢 **Kanallar Ro'yxati**\n\nJami: ${channels.length} ta kanal\n\nQuyidagi kanallardan birini tanlang:`
-			await bot.editMessageText(message, {
-				chat_id: chatId,
-				message_id: messageId,
-				parse_mode: 'Markdown',
-				reply_markup: channelListKeyboard(channels, page).reply_markup,
-			})
-		}
+	// 			// 3. Konkurs yaratish holati
+	// 			const contestState = contestController.userStates[chatId]
+	// 			if (contestState && contestState.action === 'create_contest') {
+	// 				console.log('🎯 Konkurs yaratish jarayoni...')
+	// 				await contestController.processContestCreation(chatId, msg)
+	// 				return
+	// 			}
 
-		// ========== UNKNOWN CALLBACK ==========
-		else {
-			console.warn(`Unknown callback data: ${data}`)
-			await bot.answerCallbackQuery(callbackQuery.id, {
-				text: "⚠️ Noma'lum amal",
-			})
-			return
-		}
+	// 			// 4. Oddiy admin buyruqlari
+	// 			if (text) {
+	// 				console.log('📝 Admin matnli xabar:', text)
+	// 				await handleAdminMessages(chatId, text, msg)
+	// 			}
+	// 			return
+	// 		}
 
-		// Callback queryni muvaffaqiyatli javoblash
-		await bot.answerCallbackQuery(callbackQuery.id)
-	} catch (error) {
-		console.error('Callback handler error:', error)
-		await bot.answerCallbackQuery(callbackQuery.id, {
-			text: '❌ Xatolik yuz berdi',
-		})
+	// 		// Oddiy foydalanuvchi xabarlari
+	// 		if (text) {
+	// 			console.log('📝 User matnli xabar:', text)
+	// 			await handleUserMessages(chatId, text, msg)
+	// 		}
+	// 	} catch (error) {
+	// 		console.error('❌ Xabar qayta ishlash xatosi:', error)
+	// 	}
+	// })
 
-		// Foydalanuvchiga xabar yuborish
+	// bot.on('message', async msg => {
+	// 	const chatId = msg.chat.id
+	// 	const text = msg.text
+
+	// 	try {
+	// 		const user = await User.findOne({ chatId })
+	// 		if (!user) return
+
+	// 		// Admin xabarlari
+	// 		if (user.isAdmin) {
+	// 			// Konkurs yaratish holati
+	// 			const contestState = contestController.userStates[chatId]
+	// 			if (contestState && contestState.action === 'create_contest') {
+	// 				await contestController.processContestCreation(chatId, msg)
+	// 				return
+	// 			}
+
+	// 			// Oddiy admin buyruqlari
+	// 			if (text) {
+	// 				await handleAdminMessages(chatId, text, msg)
+	// 			}
+	// 			return
+	// 		}
+
+	// 		// User xabarlari
+	// 		if (text) {
+	// 			await handleUserMessages(chatId, text, msg)
+	// 		}
+	// 	} catch (error) {
+	// 		console.error('❌ Xabar qayta ishlash xatosi:', error)
+	// 	}
+	// })
+
+	// // ==================== CALLBACK QUERY ====================
+
+	// bot.on('callback_query', async callbackQuery => {
+	// 	const chatId = callbackQuery.message.chat.id
+	// 	const data = callbackQuery.data
+
+	// 	try {
+	// 		const user = await User.findOne({ chatId })
+
+	// 		await handleCallbackQuery(chatId, data, user)
+
+	// 		await bot.answerCallbackQuery(callbackQuery.id)
+	// 	} catch (error) {
+	// 		console.error('❌ Callback query xatosi:', error)
+	// 		await bot.answerCallbackQuery(callbackQuery.id, {
+	// 			text: '❌ Xatolik yuz berdi',
+	// 		})
+	// 	}
+	// })
+
+	// // ==================== HANDLER FUNCTIONS ====================
+
+	// async function handleAdminMessages(chatId, text, msg) {
+		
+	// 	switch (text) {
+	// 		// Kanal callbacklari
+	// 		case 'add_channel':
+	// 			await channelController.startAddChannel(chatId)
+	// 			break
+	// 		case 'list_channels':
+	// 			await channelController.showChannelsList(chatId)
+	// 			break
+	// 		case data.match(/^view_channel_/)?.input:
+	// 			const channelId = data.split('_')[2]
+	// 			await channelController.showChannelDetail(chatId, channelId)
+	// 			break
+	// 		case data.match(/^toggle_channel_/)?.input:
+	// 			const toggleChannelId = data.split('_')[2]
+	// 			await channelController.toggleChannel(chatId, toggleChannelId)
+	// 			break
+	// 		case data.match(/^delete_channel_/)?.input:
+	// 			const deleteChannelId = data.split('_')[2]
+	// 			await channelController.deleteChannel(chatId, deleteChannelId)
+	// 			break
+	// 		case data.match(/^edit_channel_/)?.input:
+	// 			const editChannelId = data.split('_')[2]
+	// 			await channelController.startEditChannel(chatId, editChannelId)
+	// 			break
+				
+	// 		case '📊 Statistika':
+	// 			await adminController.handleAdminStatistics(chatId)
+	// 			break
+	// 		case '📢 Reklama':
+	// 			await adminController.handleBroadcast(chatId)
+	// 			break
+	// 		case '📺 Kanallar':
+	// 			await adminController.handleChannelManagement(chatId)
+	// 			break
+	// 		case '🎯 Konkurslar':
+	// 			await adminController.handleContestManagement(chatId)
+	// 			break
+	// 		case '👥 Foydalanuvchilar':
+	// 			await adminController.handleUserManagement(chatId)
+	// 			break
+	// 		case '⚙️ Sozlamalar':
+	// 			await adminController.handleSettings(chatId)
+	// 			break
+	// 		case '🔙 Asosiy menyu':
+	// 		case '🔙 Orqaga':
+	// 			await adminController.showAdminPanel(chatId)
+	// 			break
+	// 		default:
+	// 			await bot.sendMessage(chatId, "⚠️ Noma'lum amal.")
+	// 	}
+	// }
+
+	// async function handleUserMessages(chatId, text, msg) {
+	// 	switch (text) {
+	// 		case '📊 Mening statistika':
+	// 			await userController.showUserStats(chatId)
+	// 			break
+	// 		case "👥 Do'stlarni taklif qilish":
+	// 			await userController.showReferralInfo(chatId)
+	// 			break
+	// 		case '🎯 Konkurslar':
+	// 			await contestController.showUserContestsList(chatId)
+	// 			break
+	// 		case '🏆 Reyting':
+	// 			await userController.showLeaderboard(chatId)
+	// 			break
+	// 		case '🎁 Kunlik bonus':
+	// 			await userController.handleDailyBonus(chatId)
+	// 			break
+	// 		case 'ℹ️ Yordam':
+	// 			await showHelp(chatId)
+	// 			break
+	// 		case '🔙 Orqaga':
+	// 			await userController.showMainMenu(chatId)
+	// 			break
+	// 		default:
+	// 			await bot.sendMessage(
+	// 				chatId,
+	// 				"⚠️ Noma'lum amal. Iltimos, menyudan tanlang."
+	// 			)
+	// 	}
+	// }
+
+	// // ... existing code ...
+
+	// async function handleCallbackQuery(chatId, data, user) {
+	// 	console.log('📞 Callback data:', data);
+		
+	// 	try {
+	// 		// USER CALLBACKLARI
+	// 		if (!user.isAdmin) {
+	// 			switch (data) {
+	// 				case "check_subscription":
+	// 					await userController.handleCheckSubscription(chatId);
+	// 					break;
+	// 				case "main_menu":
+	// 					await userController.showMainMenu(chatId);
+	// 					break;
+	// 				case "show_referral":
+	// 					await userController.showReferralInfo(chatId);
+	// 					break;
+	// 				case "show_stats":
+	// 					await userController.showUserStats(chatId);
+	// 					break;
+	// 				case "list_contests_user":
+	// 					await contestController.showUserContestsList(chatId);
+	// 					break;
+	// 				case data.match(/^user_contest_/)?.input:
+	// 					const userContestId = data.split('_')[2];
+	// 					await contestController.showUserContestDetail(chatId, userContestId);
+	// 					break;
+	// 				case data.match(/^contest_join_/)?.input:
+	// 					const joinContestId = data.split('_')[2];
+	// 					await contestController.handleContestParticipation(chatId, joinContestId);
+	// 					break;
+	// 				default:
+	// 					console.log('👤 User noma\'lum callback:', data);
+	// 			}
+	// 			return;
+	// 		}
+			
+	// 		// ADMIN CALLBACKLARI
+	// 		switch (data) {
+	// 			// Asosiy admin callbacklari
+	// 			case "back_to_admin":
+	// 				await adminController.showAdminPanel(chatId);
+	// 				break;
+					
+	// 			// Konkurs callbacklari
+	// 			case "create_contest":
+	// 				await adminController.handleCreateContest(chatId);
+	// 				break;
+	// 			case "list_contests":
+	// 				await contestController.showAdminContestsList(chatId);
+	// 				break;
+	// 			case data.match(/^admin_contest_/)?.input:
+	// 				const adminContestId = data.split('_')[2];
+	// 				await contestController.showAdminContestDetail(chatId, adminContestId);
+	// 				break;
+	// 			case data.match(/^toggle_contest_/)?.input:
+	// 				const toggleContestId = data.split('_')[2];
+	// 				await contestController.toggleContest(chatId, toggleContestId);
+	// 				break;
+	// 			case data.match(/^delete_contest_/)?.input:
+	// 				const deleteContestId = data.split('_')[2];
+	// 				await contestController.deleteContest(chatId, deleteContestId);
+	// 				break;
+	// 			case data.match(/^edit_contest_/)?.input:
+	// 				const editContestId = data.split('_')[2];
+	// 				await contestController.handleEditContest(chatId, editContestId);
+	// 				break;
+	// 			case "skip_image":
+	// 				await contestController.handleSkipImage(chatId);
+	// 				break;
+					
+	// 			// Kanal callbacklari
+	// 			case "add_channel":
+	// 				await channelController.startAddChannel(chatId);
+	// 				break;
+	// 			case "list_channels":
+	// 				await channelController.showChannelsList(chatId);
+	// 				break;
+	// 			case data.match(/^view_channel_/)?.input:
+	// 				const channelId = data.split('_')[2];
+	// 				await channelController.showChannelDetail(chatId, channelId);
+	// 				break;
+	// 			case data.match(/^toggle_channel_/)?.input:
+	// 				const toggleChannelId = data.split('_')[2];
+	// 				await channelController.toggleChannel(chatId, toggleChannelId);
+	// 				break;
+	// 			case data.match(/^delete_channel_/)?.input:
+	// 				const deleteChannelId = data.split('_')[2];
+	// 				await channelController.deleteChannel(chatId, deleteChannelId);
+	// 				break;
+	// 			case data.match(/^edit_channel_/)?.input:
+	// 				const editChannelId = data.split('_')[2];
+	// 				await channelController.startEditChannel(chatId, editChannelId);
+	// 				break;
+					
+	// 			// Boshqa admin bo'limlari
+	// 			case "search_user":
+	// 				await adminController.handleUserSearch(chatId);
+	// 				break;
+	// 			case "user_stats":
+	// 				await adminController.handleUserStats(chatId);
+	// 				break;
+	// 			case "set_daily_bonus":
+	// 				await adminController.handleDailyBonusSettings(chatId);
+	// 				break;
+	// 			case "set_admin_phone":
+	// 				await adminController.handleAdminPhoneSettings(chatId);
+	// 				break;
+	// 			case data.match(/^contest_results_/)?.input:
+	// 				const resultsContestId = data.split('_')[2];
+	// 				await adminController.handleContestResults(chatId, resultsContestId);
+	// 				break;
+					
+	// 			default:
+	// 				console.log('🔧 Admin noma\'lum callback:', data);
+	// 		}
+			
+	// 	} catch (error) {
+	// 		console.error('❌ Callback handler xatosi:', error);
+	// 		throw error;
+	// 	}
+	// }
+
+	// // Xabarlarni qayta ishlashda kanal holatlarini qo'shamiz
+	// bot.on('message', async (msg) => {
+	// 	const chatId = msg.chat.id;
+	// 	const text = msg.text;
+		
+	// 	try {
+	// 		const user = await User.findOne({ chatId });
+	// 		if (!user) return;
+
+	// 		if (user.isAdmin) {
+	// 			// 1. Kanal qo'shish holati
+	// 			const channelState = channelController.userStates[chatId];
+	// 			if (channelState && channelState.action === 'add_channel') {
+	// 				console.log('📺 Kanal qo\'shish jarayoni...');
+	// 				await channelController.processAddChannel(chatId, msg);
+	// 				return;
+	// 			}
+				
+	// 			// 2. Kanal tahrirlash holati
+	// 			if (channelState && channelState.action === 'edit_channel') {
+	// 				console.log('✏️ Kanal tahrirlash jarayoni...');
+	// 				await channelController.processEditChannel(chatId, msg);
+	// 				return;
+	// 			}
+				
+	// 			// 3. Konkurs yaratish holati
+	// 			const contestState = contestController.userStates[chatId];
+	// 			if (contestState && contestState.action === 'create_contest') {
+	// 				console.log('🎯 Konkurs yaratish jarayoni...');
+	// 				await contestController.processContestCreation(chatId, msg);
+	// 				return;
+	// 			}
+				
+	// 			// 4. Oddiy admin buyruqlari
+	// 			if (text) {
+	// 				console.log('📝 Admin matnli xabar:', text);
+	// 				await handleAdminMessages(chatId, text, msg);
+	// 			}
+	// 			return;
+	// 		}
+			
+	// 		// Oddiy foydalanuvchi xabarlari
+	// 		if (text) {
+	// 			console.log('📝 User matnli xabar:', text);
+	// 			await handleUserMessages(chatId, text, msg);
+	// 		}
+			
+	// 	} catch (error) {
+	// 		console.error('❌ Xabar qayta ishlash xatosi:', error);
+	// 	}
+	// });
+
+	// // ... rest of the code ...
+
+	// async function showHelp(chatId) {
+	// 	const helpMessage = `ℹ️ Yordam
+
+	// 🎯 Botdan foydalanish uchun quyidagi amallarni bajarishingiz kerak:
+
+	// 1. ✅ Barcha kanallarga obuna bo'ling
+	// 2. 👥 Do'stlaringizni taklif qiling
+	// 3. 🎯 Konkurslarda qatnashing
+	// 4. ⭐ Ball to'plang va reytingda yuqori o'rinlarni egallang
+
+	// 📊 Har bir taklif uchun: 10 ball
+	// 🎁 Kunlik bonus: ${process.env.DAILY_BONUS_POINTS || 5} ball
+
+	// Agar muammo bo'lsa, admin bilan bog'laning.`
+
+	// 	await bot.sendMessage(chatId, helpMessage, {
+	// 		reply_markup: {
+	// 			keyboard: [[{ text: '🔙 Orqaga' }]],
+	// 			resize_keyboard: true,
+	// 		},
+	// 	})
+	// }
+
+	// // ==================== ERROR HANDLING ====================
+
+	// process.on('unhandledRejection', error => {
+	// 	console.error('❌ Unhandled Rejection:', error)
+	// })
+
+	// process.on('uncaughtException', error => {
+	// 	console.error('❌ Uncaught Exception:', error)
+	// })
+
+
+	require('dotenv').config()
+	const bot = require('./controllers/bot')
+	const connectDB = require('./config/database')
+
+	// Modellar
+	const User = require('./models/User')
+
+	// Controllerlar
+	const userController = require('./controllers/userController')
+	const adminController = require('./controllers/adminController')
+	const contestController = require('./controllers/contestController')
+	const channelController = require('./controllers/channelController')
+
+	// Ma'lumotlar bazasiga ulanish
+	connectDB()
+
+	console.log('🤖 Bot ishga tushdi...')
+
+	// ==================== START COMMAND ====================
+
+	bot.onText(/\/start/, async (msg, match) => {
+		const chatId = msg.chat.id
+		const startParam = match[1]
+
+		console.log(`🚀 Start command: chatId=${chatId}, startParam=${startParam}`)
+
 		try {
+			let user = await User.findOne({ chatId })
+
+			if (!user) {
+				user = new User({
+					chatId,
+					username: msg.chat.username || "Noma'lum",
+					fullName: `${msg.chat.first_name || ''} ${
+						msg.chat.last_name || ''
+					}`.trim(),
+					joinDate: new Date(),
+					isSubscribed: false,
+					refBy: startParam ? parseInt(startParam) : null,
+					referrals: 0,
+					points: 0,
+					lastActive: new Date(),
+					isAdmin: process.env.ADMIN_IDS.includes(chatId.toString()),
+				})
+
+				await user.save()
+			} else {
+				user.lastActive = new Date()
+				await user.save()
+			}
+
+			if (user.isAdmin) {
+				await adminController.showAdminPanel(chatId)
+				return
+			}
+
+			await userController.showMainMenu(chatId)
+		} catch (error) {
+			console.error('❌ Start command xatosi:', error)
 			await bot.sendMessage(
 				chatId,
 				"❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
 			)
-		} catch (sendError) {
-			console.error('Error sending error message:', sendError)
 		}
+	})
+
+
+	// Message handlerda reklama holatini qo'shing
+bot.on('message', async msg => {
+	const chatId = msg.chat.id
+	const text = msg.text
+
+	try {
+		const user = await User.findOne({ chatId })
+		if (!user) return
+
+		if (user.isAdmin) {
+			// 1. Reklama holati
+			const broadcastState = adminController.userStates[chatId]
+			if (broadcastState && broadcastState.action === 'broadcast') {
+				console.log('📢 Reklama jarayoni...')
+				await adminController.processBroadcast(chatId, msg)
+				return
+			}
+
+			// 2. Kanal qo'shish holati
+			const channelState = channelController.userStates[chatId]
+			if (channelState && channelState.action === 'add_channel') {
+				console.log('📺 Kanal qoʻshish jarayoni...')
+				await channelController.processAddChannel(chatId, msg)
+				return
+			}
+
+			// 3. Kanal tahrirlash holati
+			if (channelState && channelState.action === 'edit_channel') {
+				console.log('✏️ Kanal tahrirlash jarayoni...')
+				await channelController.processEditChannel(chatId, msg)
+				return
+			}
+
+			// 4. Konkurs yaratish holati
+			const contestState = contestController.userStates[chatId]
+			if (contestState && contestState.action === 'create_contest') {
+				console.log('🎯 Konkurs yaratish jarayoni...')
+				await contestController.processContestCreation(chatId, msg)
+				return
+			}
+
+			// 5. Oddiy admin buyruqlari
+			if (text) {
+				console.log('📝 Admin matnli xabar:', text)
+				await handleAdminMessages(chatId, text, msg)
+			}
+			return
+		}
+
+		// Oddiy foydalanuvchi xabarlari
+		if (text) {
+			console.log('📝 User matnli xabar:', text)
+			await handleUserMessages(chatId, text, msg)
+		}
+	} catch (error) {
+		console.error('❌ Xabar qayta ishlash xatosi:', error)
 	}
 })
 
-// Message handler ichiga to'g'ri joylashtiramiz:
-
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  
-  try {
-    // ... admin tekshiruvi ...
-
-    // ========== REFERRAL EDIT SESSION TEKSHIRISH ==========
-    if (AdminController.referralEditSessions?.has(chatId) && msg.text) {
-      const session = AdminController.referralEditSessions.get(chatId);
-      
-      if (session.step === 'user_id') {
-        await AdminController.handleReferralUserInput(chatId, msg.text, bot);
-        return;
-      }
-      else if (session.step === 'referral_count') {
-        await AdminController.handleReferralBonusInput(chatId, msg.text, bot);
-        return;
-      }
-    }
-
-    // ... qolgan session tekshiruvlari ...
-
-    // ========== STATISTICS & SETTINGS ==========
-    else if (text === '📊 Statistika') {
-      await AdminController.showStatistics(chatId, bot);
-    }
-    else if (text === '⚙️ Sozlamalar') {
-      await AdminController.showSettings(chatId, bot);
-    }
-    else if (text === '⭐️ Kunlik Bonusni O\'zgartirish') {
-      await AdminController.handleDailyBonusChange(chatId, bot);
-    }
-    else if (text === '🎯 Referal Ballni O\'zgartirish') {
-      await AdminController.handleReferralBonusChange(chatId, bot);
-    }
-    else if (text === '📢 Xabar Yuborish') {
-      await AdminController.handleBroadcast(chatId, bot);
-    }
-
-    // ... qolgan handlerlar ...
-  } catch (error) {
-    // ... error handling ...
-  }
-});
 
 bot.on('message', async msg => {
 	const chatId = msg.chat.id
 	const text = msg.text
 
 	try {
-		// ========== ADMIN TEKSHIRUV ==========
-		if (text === '/admin') {
-			return AdminController.showAdminMenu(chatId, bot)
+		const user = await User.findOne({ chatId })
+		if (!user) return
+
+		if (user.isAdmin) {
+			// 1. Foydalanuvchi qidirish holati
+			const searchState = adminController.userStates[chatId]
+			if (searchState && searchState.action === 'search_user') {
+				console.log('🔍 Foydalanuvchi qidirish jarayoni...')
+				await adminController.processUserSearch(chatId, msg)
+				return
+			}
+
+			// 2. Ball qo'shish holati
+			if (searchState && searchState.action === 'add_points') {
+				console.log('➕ Ball qoʻshish jarayoni...')
+				await adminController.processAddPoints(chatId, msg)
+				return
+			}
+
+			// 3. Reklama holati
+			const broadcastState = adminController.userStates[chatId]
+			if (broadcastState && broadcastState.action === 'broadcast') {
+				console.log('📢 Reklama jarayoni...')
+				await adminController.processBroadcast(chatId, msg)
+				return
+			}
+
+			// 4. Kanal qo'shish holati
+			const channelState = channelController.userStates[chatId]
+			if (channelState && channelState.action === 'add_channel') {
+				console.log('📺 Kanal qoʻshish jarayoni...')
+				await channelController.processAddChannel(chatId, msg)
+				return
+			}
+
+			// 5. Kanal tahrirlash holati
+			if (channelState && channelState.action === 'edit_channel') {
+				console.log('✏️ Kanal tahrirlash jarayoni...')
+				await channelController.processEditChannel(chatId, msg)
+				return
+			}
+
+			// 6. Konkurs yaratish holati
+			const contestState = contestController.userStates[chatId]
+			if (contestState && contestState.action === 'create_contest') {
+				console.log('🎯 Konkurs yaratish jarayoni...')
+				await contestController.processContestCreation(chatId, msg)
+				return
+			}
+
+			// 7. Oddiy admin buyruqlari
+			if (text) {
+				console.log('📝 Admin matnli xabar:', text)
+				await handleAdminMessages(chatId, text, msg)
+			}
+			return
 		}
 
-		// ========== STATISTICS & SETTINGS ==========
-		else if (text === '📊 Statistika') {
-			await AdminController.showStatistics(chatId, bot)
-		} else if (text === '⚙️ Sozlamalar') {
-			await AdminController.showSettings(chatId, bot)
-		} else if (text === "⭐️ Kunlik Bonusni O'zgartirish") {
-			await AdminController.handleDailyBonusChange(chatId, bot)
-		} else if (text === "🎯 Referal Ballni O'zgartirish") {
-			await AdminController.handleReferralBonusChange(chatId, bot)
-		} else if (text === '📢 Xabar Yuborish') {
-			await AdminController.handleBroadcast(chatId, bot)
+		// Oddiy foydalanuvchi xabarlari
+		if (text) {
+			console.log('📝 User matnli xabar:', text)
+			await handleUserMessages(chatId, text, msg)
 		}
-
-		// ... qolgan handlerlar ...
 	} catch (error) {
-		console.error(error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		console.error('❌ Xabar qayta ishlash xatosi:', error)
 	}
 })
 
-// Message handler ichiga yangi session tekshiruvlari qo'shamiz:
+	// ==================== XABARLARNI QAYTA ISHLASH ====================
 
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  
-  try {
-    // ... admin tekshiruvi ...
-
-    // ========== DAILY BONUS SESSION TEKSHIRISH ==========
-    if (AdminController.dailyBonusSessions && AdminController.dailyBonusSessions.has(chatId) && msg.text) {
-      await AdminController.changeDailyBonus(chatId, msg.text, bot);
-      return;
-    }
-
-    // ========== REFERRAL EDIT SESSION TEKSHIRISH ==========
-    if (AdminController.referralEditSessions && AdminController.referralEditSessions.has(chatId) && msg.text) {
-      const session = AdminController.referralEditSessions.get(chatId);
-      
-      if (session.step === 'user_id') {
-        await AdminController.handleReferralUserInput(chatId, msg.text, bot);
-        return;
-      }
-      else if (session.step === 'referral_count') {
-        await AdminController.handleReferralBonusInput(chatId, msg.text, bot);
-        return;
-      }
-    }
-
-    // ========== CHANNEL EDIT SESSION TEKSHIRISH ==========
-    if (AdminController.editChannelSessions && AdminController.editChannelSessions.has(chatId) && msg.text) {
-      await AdminController.handleEditChannelInput(chatId, msg.text, bot);
-      return;
-    }
-
-    // ========== IMAGE UPLOAD SESSION TEKSHIRISH ==========
-    if (AdminController.imageSessions && AdminController.imageSessions.has(chatId) && msg.photo) {
-      await AdminController.handleImageInput(chatId, msg, bot);
-      return;
-    }
-
-    // ========== EDIT SESSION TEKSHIRISH ==========
-    if (AdminController.editSessions && AdminController.editSessions.has(chatId) && msg.text) {
-      await AdminController.handleEditContestInput(chatId, msg.text, bot);
-      return;
-    }
-
-    // ========== CHANNEL WIZARD SESSION TEKSHIRISH ==========
-    if (ChannelWizard.hasActiveSession && ChannelWizard.hasActiveSession(chatId) && msg.text) {
-      await AdminController.handleChannelWizardInput(chatId, msg, bot);
-      return;
-    }
-
-    // ========== CONTEST WIZARD SESSION TEKSHIRISH ==========
-    if (ContestWizard.hasActiveSession && ContestWizard.hasActiveSession(chatId)) {
-      await AdminController.handleContestWizardInput(chatId, msg, bot);
-      return;
-    }
-
-    // Agar text bo'lmasa va session ham bo'lmasa
-    if (!msg.text) {
-      await bot.sendMessage(chatId, '❌ Faqat text xabarlar qabul qilinadi.');
-      return;
-    }
-
-    const text = msg.text;
-
-    // ========== MAIN MENU NAVIGATION ==========
-    if (text === '👨‍💻 Admin Panel' || text === '🔙 Orqaga') {
-      await AdminController.showMainPanel(chatId, bot);
-      return;
-    }
-
-    // ========== USER MANAGEMENT ==========
-    if (text === '👥 User Boshqaruvi') {
-      await AdminController.showUserManagement(chatId, bot);
-    }
-    else if (text === '👤 User Qidirish') {
-      await AdminController.handleUserSearch(chatId, bot);
-    }
-    else if (text === '📋 Barcha Userlar') {
-      await AdminController.showAllUsers(chatId, bot);
-    }
-    else if (text === '🎯 Ball Qo\'shish') {
-      await AdminController.handleAddPoints(chatId, bot);
-    }
-    else if (text === '✏️ Ball O\'zgartirish') {
-      await AdminController.handleSetPoints(chatId, bot);
-    }
-
-    // ========== CONTEST MANAGEMENT ==========
-    else if (text === '🎯 Konkurs Boshqaruvi') {
-      await AdminController.showContestManagement(chatId, bot);
-    }
-    else if (text === '➕ Yangi Konkurs') {
-      await AdminController.handleCreateContest(chatId, bot);
-    }
-
-    // ========== CHANNEL MANAGEMENT ==========
-    else if (text === '📢 Kanal Boshqaruvi') {
-      await AdminController.showChannelManagement(chatId, bot);
-    }
-    else if (text === '➕ Kanal Qo\'shish') {
-      await AdminController.handleCreateChannel(chatId, bot);
-    }
-
-    // ========== STATISTICS & SETTINGS ==========
-    else if (text === '📊 Statistika') {
-      await AdminController.showStatistics(chatId, bot);
-    }
-    else if (text === '⚙️ Sozlamalar') {
-      await AdminController.showSettings(chatId, bot);
-    }
-    else if (text === '⭐️ Kunlik Bonusni O\'zgartirish') {
-      await AdminController.handleDailyBonusChange(chatId, bot);
-    }
-    else if (text === '🎯 Referal Ballni O\'zgartirish') {
-      await AdminController.handleReferralBonusChange(chatId, bot);
-    }
-    else if (text === '📢 Xabar Yuborish') {
-      await AdminController.handleBroadcast(chatId, bot);
-    }
-
-    // ========== TEXT PROCESSING - CRUD OPERATIONS ==========
-    else {
-      // User qidirish
-      if (text.length > 2 && text.length < 50 && !text.includes(' | ') && !text.match(/^\d+ \d+$/)) {
-        await AdminController.searchUser(chatId, text, bot);
-      }
-      // Ball qo'shish (Format: 123456789 50)
-      else if (/^\d+ \d+$/.test(text)) {
-        await AdminController.addPoints(chatId, text, bot);
-      }
-      // Ball o'zgartirish (Format: 123456789 100)
-      else if (/^\d+ \d+$/.test(text)) {
-        await AdminController.setPoints(chatId, text, bot);
-      }
-      else {
-        await bot.sendMessage(chatId, '⚠️ Noma\'lum amal yoki noto\'g\'ri format.');
-      }
-    }
-
-  } catch (error) {
-    console.error('Message handler error:', error);
-    await bot.sendMessage(chatId, '❌ Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.');
-  }
-});
-
-// ==================== PHOTO HANDLER (alohida) ====================
-bot.on('photo', async msg => {
-	const chatId = msg.chat.id
-
-	console.log(`Photo received from ${chatId}`)
-
-	try {
-		// Admin tekshirish
-		const adminIds = process.env.ADMIN_IDS
-			? process.env.ADMIN_IDS.split(',').map(id => parseInt(id.trim()))
-			: []
-
-		if (!adminIds.includes(chatId)) {
-			return
-		}
-
-		// Faqat contest wizard yoki image upload sessionlarida rasm qabul qilamiz
-		const hasContestWizard =
-			ContestWizard.hasActiveSession && ContestWizard.hasActiveSession(chatId)
-		const hasImageSession =
-			AdminController.imageSessions && AdminController.imageSessions.has(chatId)
-
-		if (!hasContestWizard && !hasImageSession) {
-			await bot.sendMessage(
-				chatId,
-				'❌ Rasm faqat konkurs yaratish yoki rasm yuklash jarayonida qabul qilinadi.'
-			)
-			return
-		}
-
-		// Agar contest wizard session bo'lsa
-		if (hasContestWizard) {
-			await AdminController.handleContestWizardInput(chatId, msg, bot)
-			return
-		}
-
-		// Agar image upload session bo'lsa
-		if (hasImageSession) {
-			await AdminController.handleImageInput(chatId, msg, bot)
-			return
-		}
-	} catch (error) {
-		console.error('Photo handler error:', error)
+	bot.on('message', async msg => {
+		const chatId = msg.chat.id
+		const text = msg.text
 
 		try {
-			await bot.sendMessage(chatId, '❌ Rasm qayta ishlashda xatolik.')
-		} catch (sendError) {
-			console.error('Error sending error message:', sendError)
+			const user = await User.findOne({ chatId })
+			if (!user) return
+
+			if (user.isAdmin) {
+				// 1. Kanal qo'shish holati
+				const channelState = channelController.userStates[chatId]
+				if (channelState && channelState.action === 'add_channel') {
+					console.log('📺 Kanal qoʻshish jarayoni...')
+					await channelController.processAddChannel(chatId, msg)
+					return
+				}
+
+				// 2. Kanal tahrirlash holati
+				if (channelState && channelState.action === 'edit_channel') {
+					console.log('✏️ Kanal tahrirlash jarayoni...')
+					await channelController.processEditChannel(chatId, msg)
+					return
+				}
+
+				// 3. Konkurs yaratish holati
+				const contestState = contestController.userStates[chatId]
+				if (contestState && contestState.action === 'create_contest') {
+					console.log('🎯 Konkurs yaratish jarayoni...')
+					await contestController.processContestCreation(chatId, msg)
+					return
+				}
+
+				// 4. Oddiy admin buyruqlari
+				if (text) {
+					console.log('📝 Admin matnli xabar:', text)
+					await handleAdminMessages(chatId, text, msg)
+				}
+				return
+			}
+
+			// Oddiy foydalanuvchi xabarlari
+			if (text) {
+				console.log('📝 User matnli xabar:', text)
+				await handleUserMessages(chatId, text, msg)
+			}
+		} catch (error) {
+			console.error('❌ Xabar qayta ishlash xatosi:', error)
+		}
+	})
+
+	// ==================== CALLBACK QUERY ====================
+
+	bot.on('callback_query', async callbackQuery => {
+		const chatId = callbackQuery.message.chat.id
+		const data = callbackQuery.data
+
+		try {
+			const user = await User.findOne({ chatId })
+
+			await handleCallbackQuery(chatId, data, user)
+
+			await bot.answerCallbackQuery(callbackQuery.id)
+		} catch (error) {
+			console.error('❌ Callback query xatosi:', error)
+			await bot.answerCallbackQuery(callbackQuery.id, {
+				text: '❌ Xatolik yuz berdi',
+			})
+		}
+	})
+
+	// ==================== HANDLER FUNCTIONS ====================
+
+	async function handleAdminMessages(chatId, text, msg) {
+		console.log('🔧 Admin xabari qayta ishlanmoqda:', text)
+
+		try {
+			switch (text) {
+				
+				
+				case 'confirm_broadcast':
+					await adminController.sendBroadcast(chatId)
+					break
+				case 'cancel_broadcast':
+					await adminController.cancelBroadcast(chatId)
+					break
+
+				case '📊 Statistika':
+					await adminController.handleAdminStatistics(chatId)
+					break
+				case '📢 Reklama':
+					await adminController.handleBroadcast(chatId)
+					break
+				case '📺 Kanallar':
+					await adminController.handleChannelManagement(chatId)
+					break
+				case '🎯 Konkurslar':
+					await adminController.handleContestManagement(chatId)
+					break
+				case '👥 Foydalanuvchilar':
+					await adminController.handleUserManagement(chatId)
+					break
+				case '⚙️ Sozlamalar':
+					await adminController.handleSettings(chatId)
+					break
+				case '🔙 Asosiy menyu':
+				case '🔙 Orqaga':
+					await adminController.showAdminPanel(chatId)
+					break
+				default:
+					// Matnli xabarlar uchun callback ma'lumotlari emas
+					console.log('📝 Admin matnli buyruq:', text)
+					await bot.sendMessage(
+						chatId,
+						"⚠️ Noma'lum amal. Iltimos, menyudan tanlang."
+					)
+			}
+		} catch (error) {
+			console.error('❌ Admin xabarlarini qayta ishlash xatosi:', error)
+			await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
 		}
 	}
-})
 
-// ==================== ERROR HANDLERS ====================
-bot.on('polling_error', error => {
-	console.error('Polling error:', error)
-
-	// Agar polling error bo'lsa, 5 soniyadan keyin qayta urinish
-	setTimeout(() => {
-		console.log('🔄 Polling qayta boshlanmoqda...')
-	}, 5000)
-})
-
-bot.on('webhook_error', error => {
-	console.error('Webhook error:', error)
-})
-
-bot.on('error', error => {
-	console.error('Bot error:', error)
-})
-// Message handler ichiga qo'shamiz:
-
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  
-  try {
-    // ... admin tekshiruvi ...
-
-    // ========== REFERRAL EDIT SESSION TEKSHIRISH ==========
-    if (AdminController.referralEditSessions?.has(chatId) && msg.text) {
-      const session = AdminController.referralEditSessions.get(chatId);
-      
-      // Agar user ID kiritilmagan bo'lsa (birinchi bosqich)
-      if (!session.userId) {
-        await AdminController.handleReferralUserInput(chatId, msg.text, bot);
-        return;
-      }
-      // Agar user ID kiritilgan bo'lsa (ikkinchi bosqich)
-      else {
-        await AdminController.handleReferralBonusInput(chatId, msg.text, bot);
-        return;
-      }
-    }
-
-    // ========== CHANNEL EDIT SESSION TEKSHIRISH ==========
-    if (AdminController.editChannelSessions?.has(chatId) && msg.text) {
-      await AdminController.handleEditChannelInput(chatId, msg.text, bot);
-      return;
-    }
-
-    // ... qolgan session tekshiruvlari ...
-  } catch (error) {
-    // ... error handling ...
-  }
-});
-
-// ==================== GRACEFUL SHUTDOWN ====================
-process.on('SIGINT', async () => {
-	console.log("\n🛑 Bot to'xtatilmoqda...")
-
-	try {
-		await bot.stopPolling()
-		await mongoose.connection.close()
-		console.log("✅ Bot va MongoDB ulanishi to'xtatildi")
-		process.exit(0)
-	} catch (error) {
-		console.error("❌ To'xtatishda xatolik:", error)
-		process.exit(1)
+	async function handleUserMessages(chatId, text, msg) {
+		switch (text) {
+			case '📊 Mening statistika':
+				await userController.showUserStats(chatId)
+				break
+			case "👥 Do'stlarni taklif qilish":
+				await userController.showReferralInfo(chatId)
+				break
+			case '🎯 Konkurslar':
+				await contestController.showUserContestsList(chatId)
+				break
+			case '🏆 Reyting':
+				await userController.showLeaderboard(chatId)
+				break
+			case '🎁 Kunlik bonus':
+				await userController.handleDailyBonus(chatId)
+				break
+			case 'ℹ️ Yordam':
+				await showHelp(chatId)
+				break
+			case '🔙 Orqaga':
+				await userController.showMainMenu(chatId)
+				break
+			default:
+				await bot.sendMessage(
+					chatId,
+					"⚠️ Noma'lum amal. Iltimos, menyudan tanlang."
+				)
+		}
 	}
-})
 
-process.on('SIGTERM', async () => {
-	console.log("\n🛑 Bot to'xtatilmoqda (SIGTERM)...")
+	async function handleCallbackQuery(chatId, data, user) {
+		console.log('📞 Callback data:', data)
 
-	try {
-		await bot.stopPolling()
-		await mongoose.connection.close()
-		console.log("✅ Bot va MongoDB ulanishi to'xtatildi")
-		process.exit(0)
-	} catch (error) {
-		console.error("❌ To'xtatishda xatolik:", error)
-		process.exit(1)
+		try {
+			// USER CALLBACKLARI
+			if (!user.isAdmin) {
+				switch (data) {
+					case 'check_subscription':
+						await userController.handleCheckSubscription(chatId)
+						break
+					case 'main_menu':
+						await userController.showMainMenu(chatId)
+						break
+					case 'show_referral':
+						await userController.showReferralInfo(chatId)
+						break
+					case 'show_stats':
+						await userController.showUserStats(chatId)
+						break
+					case 'list_contests_user':
+						await contestController.showUserContestsList(chatId)
+						break
+					case data.match(/^user_contest_/)?.input:
+						const userContestId = data.split('_')[2]
+						await contestController.showUserContestDetail(chatId, userContestId)
+						break
+					case data.match(/^contest_join_/)?.input:
+						const joinContestId = data.split('_')[2]
+						await contestController.handleContestParticipation(
+							chatId,
+							joinContestId
+						)
+						break
+					default:
+						console.log("👤 User noma'lum callback:", data)
+						await bot.sendMessage(chatId, "⚠️ Noma'lum amal.")
+				}
+				return
+			}
+
+			// ADMIN CALLBACKLARI
+			switch (data) {
+				// Asosiy admin callbacklari
+				case 'back_to_admin':
+					await adminController.showAdminPanel(chatId)
+					break
+
+				// Konkurs callbacklari
+				case 'create_contest':
+					await adminController.handleCreateContest(chatId)
+					break
+				case 'list_contests':
+					await contestController.showAdminContestsList(chatId)
+					break
+				case data.match(/^admin_contest_/)?.input:
+					const adminContestId = data.split('_')[2]
+					await contestController.showAdminContestDetail(chatId, adminContestId)
+					break
+				case data.match(/^toggle_contest_/)?.input:
+					const toggleContestId = data.split('_')[2]
+					await contestController.toggleContest(chatId, toggleContestId)
+					break
+				case data.match(/^delete_contest_/)?.input:
+					const deleteContestId = data.split('_')[2]
+					await contestController.deleteContest(chatId, deleteContestId)
+					break
+				case data.match(/^edit_contest_/)?.input:
+					const editContestId = data.split('_')[2]
+					await contestController.handleEditContest(chatId, editContestId)
+					break
+				case 'skip_image':
+					await contestController.handleSkipImage(chatId)
+					break
+
+				// Kanal callbacklari
+				case 'add_channel':
+					await channelController.startAddChannel(chatId)
+					break
+				case 'list_channels':
+					await channelController.showChannelsList(chatId)
+					break
+				case data.match(/^view_channel_/)?.input:
+					const channelId = data.split('_')[2]
+					await channelController.showChannelDetail(chatId, channelId)
+					break
+				case data.match(/^toggle_channel_/)?.input:
+					const toggleChannelId = data.split('_')[2]
+					await channelController.toggleChannel(chatId, toggleChannelId)
+					break
+				case data.match(/^delete_channel_/)?.input:
+					const deleteChannelId = data.split('_')[2]
+					await channelController.deleteChannel(chatId, deleteChannelId)
+					break
+				case data.match(/^edit_channel_/)?.input:
+					const editChannelId = data.split('_')[2]
+					await channelController.startEditChannel(chatId, editChannelId)
+					break
+
+				// Boshqa admin bo'limlari
+				case 'search_user':
+					await adminController.handleUserSearch(chatId)
+					break
+				case 'user_stats':
+					await adminController.handleUserStats(chatId)
+					break
+				case 'set_daily_bonus':
+					await adminController.handleDailyBonusSettings(chatId)
+					break
+				case 'set_admin_phone':
+					await adminController.handleAdminPhoneSettings(chatId)
+					break
+				case data.match(/^contest_results_/)?.input:
+					const resultsContestId = data.split('_')[2]
+					await adminController.handleContestResults(chatId, resultsContestId)
+					break
+
+				default:
+					console.log("🔧 Admin noma'lum callback:", data)
+					await bot.sendMessage(chatId, "⚠️ Noma'lum amal.")
+			}
+		} catch (error) {
+			console.error('❌ Callback handler xatosi:', error)
+			await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		}
 	}
-})
 
-// ==================== UNHANDLED REJECTIONS ====================
-process.on('unhandledRejection', (reason, promise) => {
-	console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason)
-})
+	async function showHelp(chatId) {
+		const helpMessage = `ℹ️ Yordam
 
-process.on('uncaughtException', error => {
-	console.error('❌ Uncaught Exception:', error)
-	process.exit(1)
-})
+🎯 Botdan foydalanish uchun quyidagi amallarni bajarishingiz kerak:
 
-// ==================== BOT START MESSAGE ====================
-console.log('🤖 ====================================')
-console.log('🤖 Admin Bot ishga tushdi...')
-console.log(`🤖 Admin IDlar: ${process.env.ADMIN_IDS}`)
-console.log('🤖 Faqat adminlar kirishi mumkin')
-console.log('🤖 ====================================')
+1. ✅ Barcha kanallarga obuna bo'ling
+2. 👥 Do'stlaringizni taklif qiling
+3. 🎯 Konkurslarda qatnashing
+4. ⭐ Ball to'plang va reytingda yuqori o'rinlarni egallang
 
-// Botning o'zini tekshirish
-bot
-	.getMe()
-	.then(botInfo => {
-		console.log(`🤖 Bot username: @${botInfo.username}`)
-		console.log(`🤖 Bot ismi: ${botInfo.first_name}`)
+📊 Har bir taklif uchun: 10 ball
+🎁 Kunlik bonus: ${process.env.DAILY_BONUS_POINTS || 5} ball
+
+Agar muammo bo'lsa, admin bilan bog'laning.`
+
+		await bot.sendMessage(chatId, helpMessage, {
+			reply_markup: {
+				keyboard: [[{ text: '🔙 Orqaga' }]],
+				resize_keyboard: true,
+			},
+		})
+	}
+
+	// ==================== ERROR HANDLING ====================
+
+	process.on('unhandledRejection', error => {
+		console.error('❌ Unhandled Rejection:', error)
 	})
-	.catch(error => {
-		console.error("❌ Bot ma'lumotlarini olishda xato:", error)
+
+	process.on('uncaughtException', error => {
+		console.error('❌ Uncaught Exception:', error)
 	})

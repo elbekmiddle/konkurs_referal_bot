@@ -1,16 +1,17 @@
 const mongoose = require('mongoose')
 
 const contestSchema = new mongoose.Schema({
-	name: { type: String, required: true },
+	name: String,
 	description: String,
 	image: String,
-	points: { type: Number, default: 0 },
-	bonus: { type: Number, default: 0 },
+	points: Number,
+	bonus: Number,
 	startDate: Date,
 	endDate: Date,
 	isActive: { type: Boolean, default: false },
-	participants: [Number],
-	winners: [Number],
+	participants: [{ type: Number, ref: 'User' }],
+	winners: [{ type: Number, ref: 'User' }],
+	winnersCount: { type: Number, default: 1 }, // G'oliblar soni
 	createdAt: { type: Date, default: Date.now },
 })
 
