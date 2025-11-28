@@ -60,12 +60,13 @@ const handleAdminStatistics = async chatId => {
 			.limit(5)
 			.select('username fullName points referrals')
 
-		let statsMessage = `📊 *Umumiy statistika:*\n\n`
+		// TO'G'RILANGAN: Markdown emas
+		let statsMessage = `📊 Umumiy statistika:\n\n`
 		statsMessage += `👥 Jami foydalanuvchilar: ${totalUsers}\n`
 		statsMessage += `✅ Obuna bo'lganlar: ${subscribedUsers}\n`
 		statsMessage += `🎯 Jami konkurslar: ${totalContests}\n`
 		statsMessage += `🔥 Faol konkurslar: ${activeContests}\n\n`
-		statsMessage += `🏆 *Top 5 foydalanuvchi:*\n`
+		statsMessage += `🏆 Top 5 foydalanuvchi:\n`
 
 		topUsers.forEach((user, index) => {
 			statsMessage += `${index + 1}. ${user.fullName} - ${user.points} ball (${
@@ -377,100 +378,6 @@ const handleNotImplemented = async (chatId, feature) => {
 
 // ==================== FOYDALANUVCHILAR RO'YXATI ====================
 
-// const showAllUsers = async (chatId, page = 1) => {
-// 	try {
-// 		const pageSize = 10 // Har sahifada 10 ta foydalanuvchi
-// 		const skip = (page - 1) * pageSize
-
-// 		// Foydalanuvchilarni olish (eng yangilari birinchi)
-// 		const users = await User.find({})
-// 			.sort({ joinDate: -1 })
-// 			.skip(skip)
-// 			.limit(pageSize)
-// 			.select('username fullName points referrals joinDate isSubscribed chatId')
-
-// 		const totalUsers = await User.countDocuments()
-// 		const totalPages = Math.ceil(totalUsers / pageSize)
-
-// 		let message = `👥 *Barcha foydalanuvchilar*\n\n`
-// 		message += `📊 Jami: ${totalUsers} ta foydalanuvchi\n`
-// 		message += `📄 Sahifa: ${page}/${totalPages}\n\n`
-
-// 		if (users.length === 0) {
-// 			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
-// 		} else {
-// 			users.forEach((user, index) => {
-// 				const userNumber = skip + index + 1
-// 				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
-// 				const status = user.isSubscribed ? '✅' : '❌'
-
-// 				message += `${userNumber}. ${user.fullName}\n`
-// 				message += `   👤 @${user.username || "Noma'lum"}\n`
-// 				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
-// 				message += `   📅 ${joinDate} | ${status}\n\n`
-// 			})
-// 		}
-
-// 		// Keyboard yaratish
-// 		const inline_keyboard = []
-
-// 		// Foydalanuvchilar tugmalari
-// 		users.forEach(user => {
-// 			inline_keyboard.push([
-// 				{
-// 					text: `${user.fullName} (${user.points}⭐)`,
-// 					callback_data: `view_user_${user.chatId}`,
-// 				},
-// 			])
-// 		})
-
-// 		// Navigatsiya tugmalari
-// 		const navButtons = []
-
-// 		if (page > 1) {
-// 			navButtons.push({
-// 				text: '⬅️ Oldingi',
-// 				callback_data: `users_page_${page - 1}`,
-// 			})
-// 		}
-
-// 		navButtons.push({
-// 			text: `📄 ${page}/${totalPages}`,
-// 			callback_data: 'current_page',
-// 		})
-
-// 		if (page < totalPages) {
-// 			navButtons.push({
-// 				text: 'Keyingi ➡️',
-// 				callback_data: `users_page_${page + 1}`,
-// 			})
-// 		}
-
-// 		if (navButtons.length > 0) {
-// 			inline_keyboard.push(navButtons)
-// 		}
-
-// 		// Boshqa funksiyalar tugmalari
-// 		inline_keyboard.push([
-// 			{ text: '📊 Statistika', callback_data: 'user_stats' },
-// 		])
-
-// 		inline_keyboard.push([
-// 			{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
-// 		])
-
-// 		await bot.sendMessage(chatId, message, {
-// 			parse_mode: 'Markdown',
-// 			reply_markup: { inline_keyboard },
-// 		})
-// 	} catch (error) {
-// 		console.error('❌ Foydalanuvchilar roʻyxatini koʻrsatish xatosi:', error)
-// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-// 	}
-// }
-
-// controllers/adminController.js - showAllUsers funksiyasini TO'LIQ ALMASHTIRING
-
 const showAllUsers = async (chatId, page = 1) => {
 	try {
 		const pageSize = 10
@@ -564,49 +471,6 @@ const showAllUsers = async (chatId, page = 1) => {
 	}
 }
 
-// const showTopUsers = async chatId => {
-// 	try {
-// 		// Top 20 foydalanuvchi (ballar bo'yicha)
-// 		const topUsers = await User.find({})
-// 			.sort({ points: -1 })
-// 			.limit(20)
-// 			.select('username fullName points referrals joinDate isSubscribed')
-
-// 		let message = `🏆 *Top 20 foydalanuvchi*\n\n`
-
-// 		if (topUsers.length === 0) {
-// 			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
-// 		} else {
-// 			topUsers.forEach((user, index) => {
-// 				const medal = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}.`
-// 				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
-// 				const status = user.isSubscribed ? '✅' : '❌'
-
-// 				message += `${medal} ${user.fullName}\n`
-// 				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
-// 				message += `   📅 ${joinDate} | ${status}\n\n`
-// 			})
-// 		}
-
-// 		const inline_keyboard = [
-// 			[
-// 				{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' },
-// 			],
-// 			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
-// 		]
-
-// 		await bot.sendMessage(chatId, message, {
-// 			parse_mode: 'Markdown',
-// 			reply_markup: { inline_keyboard },
-// 		})
-// 	} catch (error) {
-// 		console.error('❌ Top foydalanuvchilarni koʻrsatish xatosi:', error)
-// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-// 	}
-// }
-
-
-// showTopUsers funksiyasini ham to'g'rilang
 const showTopUsers = async chatId => {
 	try {
 		const topUsers = await User.find({})
@@ -632,9 +496,7 @@ const showTopUsers = async chatId => {
 		}
 
 		const inline_keyboard = [
-			[
-				{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' },
-			],
+			[{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' }],
 			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
 		]
 
@@ -648,7 +510,6 @@ const showTopUsers = async chatId => {
 	}
 }
 
-// showRecentUsers funksiyasini ham to'g'rilang
 const showRecentUsers = async chatId => {
 	try {
 		const weekAgo = new Date()
@@ -687,97 +548,11 @@ const showRecentUsers = async chatId => {
 				{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' },
 				{ text: '🏆 Top foydalanuvchilar', callback_data: 'top_users' },
 			],
-			[
-				{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
-			],
+			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
 		]
 
 		// TO'G'RILANGAN: parse_mode ni o'chirdik
 		await bot.sendMessage(chatId, message, {
-			reply_markup: { inline_keyboard },
-		})
-	} catch (error) {
-		console.error('❌ Yangi foydalanuvchilarni koʻrsatish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-	}
-}
-
-// handleAdminStatistics funksiyasini ham to'g'rilang
-const handleAdminStatistics = async chatId => {
-	try {
-		const totalUsers = await User.countDocuments()
-		const subscribedUsers = await User.countDocuments({ isSubscribed: true })
-		const totalContests = await Contest.countDocuments()
-		const activeContests = await Contest.countDocuments({ isActive: true })
-
-		const topUsers = await User.find({})
-			.sort({ points: -1 })
-			.limit(5)
-			.select('username fullName points referrals')
-
-		// TO'G'RILANGAN: Markdown emas
-		let statsMessage = `📊 Umumiy statistika:\n\n`
-		statsMessage += `👥 Jami foydalanuvchilar: ${totalUsers}\n`
-		statsMessage += `✅ Obuna bo'lganlar: ${subscribedUsers}\n`
-		statsMessage += `🎯 Jami konkurslar: ${totalContests}\n`
-		statsMessage += `🔥 Faol konkurslar: ${activeContests}\n\n`
-		statsMessage += `🏆 Top 5 foydalanuvchi:\n`
-
-		topUsers.forEach((user, index) => {
-			statsMessage += `${index + 1}. ${user.fullName} - ${user.points} ball (${user.referrals} taklif)\n`
-		})
-
-		await bot.sendMessage(chatId, statsMessage, backKeyboard)
-	} catch (error) {
-		console.error('Admin statistika xatosi:', error)
-		await bot.sendMessage(chatId, "❌ Statistika ko'rsatishda xatolik.")
-	}
-}
-
-const showRecentUsers = async chatId => {
-	try {
-		// So'nggi 1 haftada qo'shilgan foydalanuvchilar
-		const weekAgo = new Date()
-		weekAgo.setDate(weekAgo.getDate() - 7)
-
-		const recentUsers = await User.find({ joinDate: { $gte: weekAgo } })
-			.sort({ joinDate: -1 })
-			.limit(15)
-			.select('username fullName points referrals joinDate isSubscribed')
-
-		const totalRecent = await User.countDocuments({
-			joinDate: { $gte: weekAgo },
-		})
-
-		let message = `🆕 *So'nggi qo'shilgan foydalanuvchilar*\n\n`
-		message += `📅 So'nggi 7 kunda: ${totalRecent} ta\n\n`
-
-		if (recentUsers.length === 0) {
-			message += "❌ So'nggi 7 kunda yangi foydalanuvchilar qo'shilmagan."
-		} else {
-			recentUsers.forEach((user, index) => {
-				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
-				const status = user.isSubscribed ? '✅' : '❌'
-
-				message += `${index + 1}. ${user.fullName}\n`
-				message += `   👤 @${user.username || "Noma'lum"}\n`
-				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
-				message += `   📅 ${joinDate} | ${status}\n\n`
-			})
-		}
-
-		const inline_keyboard = [
-			[
-				{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' },
-				{ text: '🏆 Top foydalanuvchilar', callback_data: 'top_users' },
-			],
-			[
-				{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
-			],
-		]
-
-		await bot.sendMessage(chatId, message, {
-			parse_mode: 'Markdown',
 			reply_markup: { inline_keyboard },
 		})
 	} catch (error) {
