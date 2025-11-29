@@ -12,9 +12,13 @@ connectDB()
 
 console.log('🤖 Bot ishga tushdi...')
 
-bot.onText(/\/start/, async (msg, match) => {
+// ==================== START COMMAND ====================
+
+bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 	const chatId = msg.chat.id
-	const startParam = match[1]
+	const startParam = match[1] // Bu yerda to'g'ri olinadi
+
+	console.log(`🚀 Start command: chatId=${chatId}, startParam=${startParam}`)
 
 	try {
 		let user = await User.findOne({ chatId })
@@ -23,17 +27,29 @@ bot.onText(/\/start/, async (msg, match) => {
 			user = new User({
 				chatId,
 				username: msg.chat.username || "Noma'lum",
-				fullName: `${msg.chat.first_name || ''} ${msg.chat.last_name || ''}`.trim(),
+				fullName: `${msg.chat.first_name || ''} ${
+					msg.chat.last_name || ''
+				}`.trim(),
 				joinDate: new Date(),
 				isSubscribed: false,
 				refBy: startParam ? parseInt(startParam) : null,
 				referrals: 0,
 				points: 0,
 				lastActive: new Date(),
-				isAdmin: process.env.ADMIN_IDS ? process.env.ADMIN_IDS.includes(chatId.toString()) : false,
+				isAdmin: process.env.ADMIN_IDS
+					? process.env.ADMIN_IDS.includes(chatId.toString())
+					: false,
+				referredUsers: [],
 			})
 
 			await user.save()
+			console.log(`✅ Yangi user yaratildi: ${chatId}, refBy: ${startParam}`)
+
+			// REFERAL TIZIMI - Yangi foydalanuvchi
+			if (startParam && startParam !== chatId.toString()) {
+				console.log(`🔗 Referal ishlayapti: ${startParam} -> ${chatId}`)
+				await userController.processReferral(startParam, user)
+			}
 		} else {
 			user.lastActive = new Date()
 			await user.save()
@@ -47,10 +63,14 @@ bot.onText(/\/start/, async (msg, match) => {
 		await userController.handleStart(chatId, startParam)
 	} catch (error) {
 		console.error('❌ Start command xatosi:', error)
-		await bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+		await bot.sendMessage(
+			chatId,
+			"❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
+		)
 	}
-	})
+})
 
+// ==================== BIRTA MESSAGE HANDLER ====================
 
 bot.on('message', async msg => {
 	const chatId = msg.chat.id
@@ -173,7 +193,10 @@ async function handleAdminMessages(chatId, text, msg) {
 			default:
 				// Faqat matnli xabarlar uchun
 				if (text && !text.startsWith('/')) {
-					await bot.sendMessage(chatId, "⚠️ Noma'lum amal. Iltimos, menyudan tanlang.")
+					await bot.sendMessage(
+						chatId,
+						"⚠️ Noma'lum amal. Iltimos, menyudan tanlang."
+					)
 				}
 		}
 	} catch (error) {
@@ -207,19 +230,28 @@ async function handleUserMessages(chatId, text, msg) {
 				await userController.showMainMenu(chatId)
 				break
 			case "✅ Obuna bo'ldim":
-				const subscription = await channelController.checkUserSubscription(chatId)
+				const subscription = await channelController.checkUserSubscription(
+					chatId
+				)
 				if (subscription.subscribed) {
 					const user = await User.findOne({ chatId })
 					if (user) {
 						user.isSubscribed = true
 						await user.save()
 					}
-					await bot.sendMessage(chatId, "✅ Rahmat! Barcha kanallarga obuna bo'lgansiz.", {
-						reply_markup: { remove_keyboard: true },
-					})
+					await bot.sendMessage(
+						chatId,
+						"✅ Rahmat! Barcha kanallarga obuna bo'lgansiz.",
+						{
+							reply_markup: { remove_keyboard: true },
+						}
+					)
 					await userController.showMainMenu(chatId)
 				} else {
-					await bot.sendMessage(chatId, "❌ Hali barcha kanallarga obuna bo'lmagansiz. Iltimos, tekshirib ko'ring.")
+					await bot.sendMessage(
+						chatId,
+						"❌ Hali barcha kanallarga obuna bo'lmagansiz. Iltimos, tekshirib ko'ring."
+					)
 				}
 				break
 			default:
@@ -239,6 +271,9 @@ async function handleCallbackQuery(chatId, data, user) {
 		// USER CALLBACKLARI
 		if (!user.isAdmin) {
 			switch (data) {
+				case 'confirm_subscription':
+					await userController.handleConfirmSubscription(chatId)
+					break
 				case 'check_subscription':
 					await userController.handleCheckSubscription(chatId)
 					break
@@ -266,7 +301,10 @@ async function handleCallbackQuery(chatId, data, user) {
 					break
 				case data.match(/^contest_join_/)?.input:
 					const joinContestId = data.split('_')[2]
-					await contestController.handleContestParticipation(chatId, joinContestId)
+					await contestController.handleContestParticipation(
+						chatId,
+						joinContestId
+					)
 					break
 				default:
 					console.log("👤 User noma'lum callback:", data)
@@ -326,7 +364,10 @@ async function handleCallbackQuery(chatId, data, user) {
 				break
 			case data.match(/^toggle_subscription_/)?.input:
 				const toggleSubChannelId = data.split('_')[2]
-				await channelController.toggleSubscriptionRequirement(chatId, toggleSubChannelId)
+				await channelController.toggleSubscriptionRequirement(
+					chatId,
+					toggleSubChannelId
+				)
 				break
 			case data.match(/^delete_channel_/)?.input:
 				const deleteChannelId = data.split('_')[2]

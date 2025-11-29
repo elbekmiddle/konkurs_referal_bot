@@ -5,6 +5,64 @@ const channelController = require('./channelController')
 
 const bot = require('./bot')
 
+// ==================== REFERAL TIZIMI ====================
+
+// Referalni qayta ishlash (alohida funksiya - EXPORT QILING!)
+const processReferral = async (referrerChatId, newUser) => {
+	try {
+		console.log(`🔍 Referal qidirilmoqda: ${referrerChatId}`)
+		const referrer = await User.findOne({ chatId: parseInt(referrerChatId) })
+
+		if (!referrer) {
+			console.log('❌ Referal topilmadi:', referrerChatId)
+			return
+		}
+
+		console.log(`✅ Referal topildi: ${referrer.chatId} -> ${newUser.chatId}`)
+
+		// Taklif qilgan foydalanuvchini yangilash
+		referrer.referrals += 1
+		referrer.points += 10
+
+		// Taklif qilingan foydalanuvchini referredUsers ga qo'shish
+		referrer.referredUsers.push({
+			chatId: newUser.chatId,
+			username: newUser.username,
+			fullName: newUser.fullName,
+			joinDate: newUser.joinDate,
+			points: newUser.points,
+		})
+
+		await referrer.save()
+
+		// Yangi foydalanuvchiga ball berish
+		newUser.points += 5
+		newUser.refBy = parseInt(referrerChatId)
+		await newUser.save()
+
+		// Referal qilgan foydalanuvchiga xabar
+		try {
+			await bot.sendMessage(
+				referrer.chatId,
+				`🎉 *Yangi taklif!*\n\n` +
+					`Sizning taklif havolangiz orqali yangi foydalanuvchi qoʻshildi!\n\n` +
+					`👤 Yangi foydalanuvchi: ${newUser.fullName}\n` +
+					`💰 Sizga 10 ball qoʻshildi!\n` +
+					`🎁 Yangi foydalanuvchi 5 ball oldi!\n` +
+					`📊 Jami ball: ${referrer.points}\n` +
+					`👥 Jami takliflar: ${referrer.referrals} ta`,
+				{ parse_mode: 'Markdown' }
+			)
+		} catch (error) {
+			console.error('Referal xabar yuborish xatosi:', error)
+		}
+
+		console.log(`✅ Referal muvaffaqiyatli: ${referrer.chatId} -> ${newUser.chatId}`)
+	} catch (error) {
+		console.error('❌ Referal qayta ishlash xatosi:', error)
+	}
+}
+
 // ==================== START COMMAND ====================
 
 const handleStart = async (chatId, startParam = null) => {
@@ -23,49 +81,17 @@ const handleStart = async (chatId, startParam = null) => {
 				points: 0,
 				lastActive: new Date(),
 				isAdmin: false,
+				referredUsers: [],
 			})
 			await user.save()
 
-			// REFERAL TIZIMI
-			if (startParam) {
-				const referrer = await User.findOne({ chatId: parseInt(startParam) })
-				if (referrer) {
-					// Yangi foydalanuvchiga ball berish
-					user.points += 5
-					await user.save()
-
-					// Referal qilgan foydalanuvchiga ball qo'shish
-					referrer.points += 10
-					referrer.referrals += 1
-					await referrer.save()
-
-					// Referal qilgan foydalanuvchiga xabar
-					try {
-						await bot.sendMessage(
-							referrer.chatId,
-							`🎉 *Yangi taklif!*\n\n` +
-								`Sizning taklif havolangiz orqali yangi foydalanuvchi qoʻshildi!\n\n` +
-								`👤 Yangi foydalanuvchi: ${user.fullName}\n` +
-								`💰 Sizga 10 ball qoʻshildi!\n` +
-								`📊 Jami ball: ${referrer.points}\n` +
-								`👥 Jami takliflar: ${referrer.referrals} ta`,
-							{ parse_mode: 'Markdown' }
-						)
-					} catch (error) {
-						console.error('Referal xabar yuborish xatosi:', error)
-					}
-				}
+			// REFERAL TIZIMI - Yangi foydalanuvchi
+			if (startParam && startParam !== chatId.toString()) {
+				await processReferral(startParam, user)
 			}
 		} else {
 			user.lastActive = new Date()
 			await user.save()
-		}
-
-		// Admin tekshirish
-		if (user.isAdmin) {
-			const adminController = require('./adminController')
-			await adminController.showAdminPanel(chatId)
-			return
 		}
 
 		// Kanallarga obuna bo'lishni tekshirish
@@ -106,9 +132,7 @@ const showMainMenu = async chatId => {
 			`📊 *Sizning statistikangiz:*\n` +
 			`⭐ Ball: ${user.points}\n` +
 			`👥 Takliflar: ${referredUsers.length} ta\n` +
-			`📅 Faollik: ${new Date(user.lastActive).toLocaleDateString(
-				'uz-UZ'
-			)}\n\n` +
+			`📅 Faollik: ${new Date(user.lastActive).toLocaleDateString('uz-UZ')}\n\n` +
 			`Quyidagi bo'limlardan birini tanlang:`
 
 		await bot.sendMessage(chatId, message, {
@@ -123,23 +147,9 @@ const showMainMenu = async chatId => {
 
 // ==================== KANALGA OBUNA BO'LISH ====================
 
-const showChannelsForSubscription = async (
-	chatId,
-	subscriptionResult = null
-) => {
+const showChannelsForSubscription = async chatId => {
 	try {
-		let channels = []
-		let notSubscribedChannels = []
-
-		if (subscriptionResult && subscriptionResult.channels) {
-			notSubscribedChannels = subscriptionResult.channels.filter(
-				ch => !ch.subscribed
-			)
-			channels = notSubscribedChannels.map(ch => ch.channel || ch)
-		} else {
-			channels = await channelController.getActiveChannels()
-			notSubscribedChannels = channels
-		}
+		const channels = await Channel.find({ isActive: true })
 
 		if (channels.length === 0) {
 			// Agar kanal yo'q bo'lsa, avtomatik obuna bo'lgan deb belgilaymiz
@@ -194,39 +204,72 @@ const showChannelsForSubscription = async (
 	}
 }
 
-// User controller ichidagi kanal tekshirish funksiyasini yangilang:
+// ==================== OBUNA TEKSHIRISH ====================
 
 const handleCheckSubscription = async chatId => {
-    try {
-        const user = await User.findOne({ chatId })
-        if (!user) {
-            await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-            return
-        }
+	try {
+		const user = await User.findOne({ chatId })
+		if (!user) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+			return
+		}
 
-        // SERVER ORQALI OBUNA TEKSHIRISH
-        const subscriptionResult = await channelController.checkUserSubscription(chatId)
+		// Agar allaqachon obuna bo'lgan bo'lsa
+		if (user.isSubscribed) {
+			await showMainMenu(chatId)
+			return
+		}
 
-        if (subscriptionResult.subscribed) {
-            // Barcha kanallarga obuna bo'lgan
-            user.isSubscribed = true
-            await user.save()
+		// SERVER ORQALI OBUNA TEKSHIRISH
+		const subscriptionResult = await channelController.checkUserSubscription(chatId)
 
-            await bot.sendMessage(
-                chatId,
-                `✅ Tabriklaymiz!\n\nSiz barcha kanallarga obuna bo'lgansiz! 🎉\n\nEndi botning barcha funksiyalaridan foydalanishingiz mumkin.`,
-                mainMenuKeyboard
-            )
-        } else {
-            // Obuna bo'lmagan kanallarni ko'rsatish
-            await channelController.showUserChannels(chatId, subscriptionResult)
-        }
-    } catch (error) {
-        console.error('❌ Obuna tekshirish xatosi:', error)
-        // Xatolik bo'lsa ham kanallarni ko'rsatish
-        await channelController.showUserChannels(chatId)
-    }
+		if (subscriptionResult.subscribed) {
+			// Barcha kanallarga obuna bo'lgan
+			user.isSubscribed = true
+			await user.save()
+
+			await bot.sendMessage(
+				chatId,
+				`✅ Tabriklaymiz!\n\nSiz barcha kanallarga obuna bo'lgansiz! 🎉\n\nEndi botning barcha funksiyalaridan foydalanishingiz mumkin.`,
+				mainMenuKeyboard
+			)
+		} else {
+			// Obuna bo'lmagan kanallarni ko'rsatish
+			await showChannelsForSubscription(chatId)
+		}
+	} catch (error) {
+		console.error('❌ Obuna tekshirish xatosi:', error)
+		await showChannelsForSubscription(chatId)
+	}
 }
+
+// Yangi funksiya: Obunani tasdiqlash
+const handleConfirmSubscription = async chatId => {
+	try {
+		const user = await User.findOne({ chatId })
+		if (!user) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+			return
+		}
+
+		// Foydalanuvchini obuna bo'lgan deb belgilaymiz
+		user.isSubscribed = true
+		await user.save()
+
+		await bot.sendMessage(
+			chatId,
+			`✅ Rahmat! Obuna holatingiz tasdiqlandi! 🎉\n\nEndi botning barcha funksiyalaridan foydalanishingiz mumkin.`,
+			mainMenuKeyboard
+		)
+
+		console.log(`✅ Foydalanuvchi obunani tasdiqladi: ${chatId}`)
+	} catch (error) {
+		console.error('❌ Obunani tasdiqlash xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
+}
+
+// ==================== FOYDALANUVCHI STATISTIKASI ====================
 
 const showUserStats = async chatId => {
 	try {
@@ -240,8 +283,7 @@ const showUserStats = async chatId => {
 		// Taklif qilingan do'stlarni olish
 		const referredUsers = await User.find({ refBy: chatId })
 		const totalUsers = await User.countDocuments()
-		const userRank =
-			(await User.countDocuments({ points: { $gt: user.points } })) + 1
+		const userRank = (await User.countDocuments({ points: { $gt: user.points } })) + 1
 
 		const message =
 			`👤 *Sizning statistikangiz*\n\n` +
@@ -250,9 +292,7 @@ const showUserStats = async chatId => {
 			`⭐ Ball: ${user.points}\n` +
 			`👥 Taklif qilgan: ${referredUsers.length} ta\n` +
 			`💰 Taklif ballari: ${referredUsers.length * 10} ball\n` +
-			`📅 Qoʻshilgan sana: ${new Date(user.joinDate).toLocaleDateString(
-				'uz-UZ'
-			)}\n` +
+			`📅 Qoʻshilgan sana: ${new Date(user.joinDate).toLocaleDateString('uz-UZ')}\n` +
 			`🏆 Reytingdagi o'rni: ${userRank}/${totalUsers}`
 
 		const inline_keyboard = [
@@ -295,34 +335,27 @@ const showReferredFriends = async chatId => {
 			return
 		}
 
-		// Taklif qilingan do'stlarni olish
-		const referredUsers = await User.find({ refBy: chatId })
-			.sort({ joinDate: -1 })
-			.select('username fullName points joinDate isSubscribed')
-
 		let message = `👥 *Taklif qilingan do'stlar*\n\n`
 
-		if (referredUsers.length === 0) {
+		if (user.referredUsers.length === 0) {
 			message += `📭 Hozircha siz hech kimni taklif qilmagansiz.\n\n`
 			message += `🔗 Do'stlaringizni taklif qiling va ball to'plang!\n`
 			message += `Har bir taklif uchun *10 ball* olasiz!`
 		} else {
-			message += `📊 Jami taklif qilganlar: *${referredUsers.length} ta*\n\n`
+			message += `📊 Jami taklif qilganlar: *${user.referredUsers.length} ta*\n\n`
 
-			referredUsers.forEach((friend, index) => {
+			user.referredUsers.forEach((friend, index) => {
 				const joinDate = new Date(friend.joinDate).toLocaleDateString('uz-UZ')
-				const status = friend.isSubscribed ? '✅' : '❌'
 				const username = friend.username ? `@${friend.username}` : "Noma'lum"
 
 				message += `${index + 1}. *${friend.fullName}*\n`
 				message += `   👤 ${username}\n`
 				message += `   ⭐ ${friend.points} ball\n`
-				message += `   📅 ${joinDate}\n`
-				message += `   ${status}\n\n`
+				message += `   📅 ${joinDate}\n\n`
 			})
 
 			message += `💰 Siz ushbu takliflar orqali *${
-				referredUsers.length * 10
+				user.referredUsers.length * 10
 			} ball* to'plagansiz!`
 		}
 
@@ -372,8 +405,6 @@ const showReferralInfo = async chatId => {
 			return
 		}
 
-		// Taklif qilingan do'stlarni olish
-		const referredUsers = await User.find({ refBy: chatId })
 		const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`
 
 		let message = `👥 *Do'stlaringizni taklif qiling*\n\n`
@@ -384,8 +415,8 @@ const showReferralInfo = async chatId => {
 		message += `• Do'stlaringiz ham *5 ball* oladi\n`
 		message += `• Ko'proq taklif, ko'proq ball!\n\n`
 		message += `📈 *Sizning natijangiz:*\n`
-		message += `• Jami takliflar: *${referredUsers.length} ta*\n`
-		message += `• Taklif ballari: *${referredUsers.length * 10} ball*\n`
+		message += `• Jami takliflar: *${user.referredUsers.length} ta*\n`
+		message += `• Taklif ballari: *${user.referredUsers.length * 10} ball*\n`
 		message += `• Jami ball: *${user.points} ball*`
 
 		const inline_keyboard = [
@@ -454,8 +485,7 @@ const showLeaderboard = async chatId => {
 
 		// Foydalanuvchi o'z o'rnini ko'rsatish
 		if (currentUser) {
-			const userRank =
-				(await User.countDocuments({ points: { $gt: currentUser.points } })) + 1
+			const userRank = (await User.countDocuments({ points: { $gt: currentUser.points } })) + 1
 			message += `\n📊 Sizning o'rningiz: ${userRank}`
 		}
 
@@ -541,4 +571,6 @@ module.exports = {
 	handleCheckSubscription,
 	showChannelsForSubscription,
 	showHelp,
+	handleConfirmSubscription,
+	processReferral, // BU YANGI QO'SHILDI!
 }

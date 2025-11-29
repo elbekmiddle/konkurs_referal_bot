@@ -1,4 +1,5 @@
 const Channel = require('../models/Channel')
+const User = require('../models/User')
 const bot = require('./bot')
 
 // User states for channel management
@@ -253,12 +254,6 @@ const showChannelDetail = async (chatId, channelId) => {
 				{
 					text: channel.isActive ? '🔴 Oʻchirish' : '🟢 Yoqish',
 					callback_data: `toggle_channel_${channel._id}`,
-				},
-				{
-					text: channel.requiresSubscription
-						? '🔕 Obunani olib tashlash'
-						: '🔔 Obuna qoʻshish',
-					callback_data: `toggle_subscription_${channel._id}`,
 				},
 			],
 			[
@@ -540,7 +535,7 @@ const getActiveChannels = async () => {
 	}
 }
 
-// Aqlli obuna tekshirish tizimi
+// Soddalashtirilgan obuna tekshirish - FAQAT QO'LDA TEKSHIRISH
 const checkUserSubscription = async chatId => {
 	try {
 		const channels = await getActiveChannels()
@@ -554,96 +549,21 @@ const checkUserSubscription = async chatId => {
 			}
 		}
 
-		const subscriptionResults = []
-		let successfulChecks = 0
-		let totalChecks = 0
-
-		for (const channel of channels) {
-			totalChecks++
-
-			// Agar channelId bo'lmasa, qo'lda tekshirish kerak
-			if (!channel.channelId || channel.channelId.trim() === '') {
-				subscriptionResults.push({
-					channel: channel,
-					subscribed: false,
-					requiresManualCheck: true,
-					error: 'Channel ID mavjud emas',
-					canCheckViaBot: false,
-				})
-				continue
-			}
-
-			// Bot orqali tekshirish
-			try {
-				const chatMember = await bot.getChatMember(channel.channelId, chatId)
-				const isSubscribed = ['member', 'administrator', 'creator'].includes(
-					chatMember.status
-				)
-
-				subscriptionResults.push({
-					channel: channel,
-					subscribed: isSubscribed,
-					checkedViaBot: true,
-					canCheckViaBot: true,
-				})
-
-				if (isSubscribed) {
-					successfulChecks++
-				}
-			} catch (error) {
-				console.error(
-					`❌ ${channel.name} kanaliga a'zolikni tekshirish xatosi:`,
-					error.message
-				)
-
-				// Xato turlarini aniqlash
-				let errorType = 'unknown'
-				if (error.message.includes('member list is inaccessible')) {
-					errorType = 'inaccessible'
-				} else if (error.message.includes('chat not found')) {
-					errorType = 'chat_not_found'
-				} else if (error.message.includes('bot is not a member')) {
-					errorType = 'bot_not_member'
-				}
-
-				subscriptionResults.push({
-					channel: channel,
-					subscribed: false,
-					error: true,
-					errorType: errorType,
-					errorMessage: error.message,
-					requiresManualCheck: true,
-					canCheckViaBot: false,
-				})
-			}
-		}
-
-		// Agar hech qanday kanalni bot orqali tekshira olmasak
-		const allManualCheck = subscriptionResults.every(
-			result => !result.canCheckViaBot
-		)
-
-		if (allManualCheck) {
-			return {
-				subscribed: false,
-				channels: subscriptionResults,
-				requiresManualCheck: true,
-				message:
-					"📋 Quyidagi kanallarga obuna bo'lganingizni qo'lda tekshiring",
-			}
-		}
-
-		// Agar barcha tekshirilgan kanallarga obuna bo'lgan bo'lsa
-		const allCheckedAndSubscribed = successfulChecks === totalChecks
+		// Bot tekshira olmaydi, shuning uchun har doim qo'lda tekshirish kerak
+		const subscriptionResults = channels.map(channel => ({
+			channel: channel,
+			subscribed: false,
+			requiresManualCheck: true,
+			canCheckViaBot: false,
+			message: "Qo'lda tekshirish talab qilinadi",
+		}))
 
 		return {
-			subscribed: allCheckedAndSubscribed,
+			subscribed: false,
 			channels: subscriptionResults,
-			checkedViaBot: !allManualCheck,
-			requiresManualCheck: allManualCheck,
-			message: allCheckedAndSubscribed
-				? "✅ Barcha kanallarga obuna bo'lgansiz!"
-				: "❌ Ba'zi kanallarga obuna bo'lmagansiz",
+			requiresManualCheck: true,
+			checkedViaBot: false,
+			message: "📋 Quyidagi kanallarga obuna bo'lganingizni tekshiring",
 		}
 	} catch (error) {
 		console.error('❌ Aʼzolik tekshirish xatosi:', error)
@@ -654,6 +574,102 @@ const checkUserSubscription = async chatId => {
 			message: '❌ Tekshirishda xatolik yuz berdi',
 			requiresManualCheck: true,
 		}
+	}
+}
+
+// Foydalanuvchi obuna bo'lganligini tasdiqlash
+const confirmUserSubscription = async chatId => {
+	try {
+		const user = await User.findOne({ chatId })
+		if (!user) {
+			return false
+		}
+
+		// Foydalanuvchini obuna bo'lgan deb belgilaymiz
+		user.isSubscribed = true
+		await user.save()
+
+		console.log(`✅ Foydalanuvchi obuna bo'ldi: ${chatId}`)
+		return true
+	} catch (error) {
+		console.error('❌ Obunani tasdiqlash xatosi:', error)
+		return false
+	}
+}
+
+// Foydalanuvchi uchun kanallarni ko'rsatish
+const showUserChannels = async (chatId, subscriptionResult = null) => {
+	try {
+		let channels = []
+		let message = ''
+
+		if (subscriptionResult && subscriptionResult.channels) {
+			channels = subscriptionResult.channels.map(item => item.channel || item)
+
+			if (subscriptionResult.noChannels) {
+				message = `✅ Hozircha majburiy kanallar mavjud emas.\nSiz botdan to'liq foydalanishingiz mumkin!`
+
+				await bot.sendMessage(chatId, message)
+				return { hasChannels: false }
+			} else if (subscriptionResult.subscribed) {
+				message = `✅ Tabriklaymiz! Siz barcha kanallarga obuna bo'lgansiz! 🎉`
+
+				await bot.sendMessage(chatId, message)
+				return { hasChannels: false, subscribed: true }
+			} else {
+				message = `📢 Botdan to'liq foydalanish uchun quyidagi kanallarga obuna bo'ling:\n\n`
+			}
+		} else {
+			channels = await getActiveChannels()
+			message = `📢 Botdan to'liq foydalanish uchun quyidagi kanallarga obuna bo'ling:\n\n`
+		}
+
+		if (channels.length === 0) {
+			await bot.sendMessage(chatId, message)
+			return { hasChannels: false }
+		}
+
+		const inline_keyboard = []
+
+		// Har bir kanal uchun tugma qo'shamiz
+		channels.forEach(channel => {
+			const channelName = channel.name || "Noma'lum kanal"
+			const channelLink = channel.link || '#'
+
+			message += `📺 ${channelName}\n🔗 ${channelLink}\n\n`
+			inline_keyboard.push([
+				{
+					text: `📺 ${channelName} ga o'tish`,
+					url: channelLink,
+				},
+			])
+		})
+
+		message += `\nEslatma: Barcha kanallarga obuna bo'lgach, "✅ Obuna bo'ldim" tugmasini bosing.`
+
+		// Tekshirish va tasdiqlash tugmalari
+		inline_keyboard.push([
+			{
+				text: '✅ Obuna boʻldim',
+				callback_data: 'confirm_subscription',
+			},
+			{
+				text: '🔄 Tekshirish',
+				callback_data: 'check_subscription',
+			},
+		])
+
+		await bot.sendMessage(chatId, message, {
+			reply_markup: {
+				inline_keyboard: inline_keyboard,
+			},
+		})
+
+		return { hasChannels: true }
+	} catch (error) {
+		console.error('❌ Foydalanuvchi uchun kanallarni koʻrsatish xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		return { hasChannels: false, error: true }
 	}
 }
 
@@ -691,75 +707,6 @@ const checkUserSubscriptionSimple = async chatId => {
 	}
 }
 
-// Foydalanuvchi uchun kanallarni ko'rsatish
-const showUserChannels = async (chatId, subscriptionResult = null) => {
-	try {
-		let channels = []
-		let message = ''
-
-		if (subscriptionResult && subscriptionResult.channels) {
-			channels = subscriptionResult.channels.map(item => item.channel || item)
-
-			if (subscriptionResult.noChannels) {
-				message = `✅ Hozircha majburiy kanallar mavjud emas.\nSiz botdan to'liq foydalanishingiz mumkin!`
-			} else if (subscriptionResult.subscribed) {
-				message = `✅ Tabriklaymiz! Siz barcha kanallarga obuna bo'lgansiz! 🎉`
-			} else {
-				message = `📢 Botdan to'liq foydalanish uchun quyidagi kanallarga obuna bo'ling:\n\n`
-			}
-		} else {
-			channels = await getActiveChannels()
-			message = `📢 Botdan to'liq foydalanish uchun quyidagi kanallarga obuna bo'ling:\n\n`
-		}
-
-		if (channels.length === 0) {
-			await bot.sendMessage(chatId, message, {
-				parse_mode: 'Markdown',
-			})
-			return { hasChannels: false }
-		}
-
-		const inline_keyboard = []
-
-		// Har bir kanal uchun tugma qo'shamiz
-		channels.forEach(channel => {
-			const channelName = channel.name || "Noma'lum kanal"
-			const channelLink = channel.link || '#'
-
-			message += `📺 ${channelName}\n🔗 ${channelLink}\n\n`
-			inline_keyboard.push([
-				{
-					text: `📺 ${channelName} ga o'tish`,
-					url: channelLink,
-				},
-			])
-		})
-
-		message += `*Eslatma:* Kanallarga obuna bo'lgach, "✅ Obuna bo'ldim" tugmasini bosing.`
-
-		// Tekshirish tugmalari
-		inline_keyboard.push([
-			{
-				text: '✅ Obuna boʻldim (Tekshirish)',
-				callback_data: 'check_subscription',
-			},
-		])
-
-		await bot.sendMessage(chatId, message, {
-			parse_mode: 'Markdown',
-			reply_markup: {
-				inline_keyboard: inline_keyboard,
-			},
-		})
-
-		return { hasChannels: true }
-	} catch (error) {
-		console.error('❌ Foydalanuvchi uchun kanallarni koʻrsatish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-		return { hasChannels: false, error: true }
-	}
-}
-
 module.exports = {
 	userStates,
 	startAddChannel,
@@ -775,4 +722,5 @@ module.exports = {
 	checkUserSubscription,
 	checkUserSubscriptionSimple,
 	showUserChannels,
+	confirmUserSubscription,
 }

@@ -1,19 +1,79 @@
+// const mongoose = require('mongoose')
+
+// const userSchema = new mongoose.Schema({
+// 	chatId: { type: Number, required: true, unique: true },
+// 	username: String,
+// 	fullName: String,
+// 	joinDate: { type: Date, default: Date.now },
+// 	isSubscribed: { type: Boolean, default: false },
+// 	refBy: Number,
+// 	referrals: { type: Number, default: 0 },
+// 	points: { type: Number, default: 0 },
+// 	lastActive: { type: Date, default: Date.now },
+// 	isAdmin: { type: Boolean, default: false },
+// 	dailyBonusClaimed: { type: Boolean, default: false },
+// 	participatedContests: [
+// 		{ type: mongoose.Schema.Types.ObjectId, ref: 'Contest' },
+// 	],
+// })
+
+// module.exports = mongoose.model('User', userSchema)
+
+
 const mongoose = require('mongoose')
 
 const userSchema = new mongoose.Schema({
-	chatId: { type: Number, required: true, unique: true },
+	chatId: {
+		type: Number,
+		required: true,
+		unique: true,
+	},
 	username: String,
 	fullName: String,
-	joinDate: { type: Date, default: Date.now },
-	isSubscribed: { type: Boolean, default: false },
+	joinDate: {
+		type: Date,
+		default: Date.now,
+	},
+	isSubscribed: {
+		type: Boolean,
+		default: false,
+	},
 	refBy: Number,
-	referrals: { type: Number, default: 0 },
-	points: { type: Number, default: 0 },
-	lastActive: { type: Date, default: Date.now },
-	isAdmin: { type: Boolean, default: false },
-	dailyBonusClaimed: { type: Boolean, default: false },
+	referrals: {
+		type: Number,
+		default: 0,
+	},
+	referredUsers: [
+		{
+			chatId: Number,
+			username: String,
+			fullName: String,
+			joinDate: Date,
+			points: Number,
+		},
+	],
+	points: {
+		type: Number,
+		default: 0,
+	},
+	lastActive: {
+		type: Date,
+		default: Date.now,
+	},
+	isAdmin: {
+		type: Boolean,
+		default: false,
+	},
+	dailyBonusClaimed: {
+		type: Boolean,
+		default: false,
+	},
+	lastBonusDate: Date,
 	participatedContests: [
-		{ type: mongoose.Schema.Types.ObjectId, ref: 'Contest' },
+		{
+			type: mongoose.Schema.Types.ObjectId,
+			ref: 'Contest',
+		},
 	],
 })
 
