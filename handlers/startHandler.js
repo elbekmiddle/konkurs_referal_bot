@@ -85,7 +85,7 @@ class StartHandler {
 		const keyboard = {
 			reply_markup: {
 				keyboard: [
-					[{ text: '📊 Mening statistika' }, { text: '🏆 Reyting' }],
+					[{ text: '📊 Mening statistikam' }, { text: '🏆 Reyting' }],
 					[{ text: "👥 Do'stlarni taklif qilish" }, { text: 'ℹ️ Yordam' }],
 					[{ text: '🎁 Kundalik bonus' }],
 				],

@@ -18,7 +18,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 	const chatId = msg.chat.id
 	const startParam = match[1] // Bu yerda to'g'ri olinadi
 
-	console.log(`🚀 Start command: chatId=${chatId}, startParam=${startParam}`)
+	console.log(`🚀 Start command: chatId=${chatId}`)
 
 	try {
 		let user = await User.findOne({ chatId })
@@ -208,7 +208,7 @@ async function handleAdminMessages(chatId, text, msg) {
 async function handleUserMessages(chatId, text, msg) {
 	try {
 		switch (text) {
-			case '📊 Mening statistika':
+			case '📊 Mening statistikam':
 				await userController.showUserStats(chatId)
 				break
 			case "👥 Do'stlarni taklif qilish":

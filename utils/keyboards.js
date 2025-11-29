@@ -3,7 +3,7 @@ const mainMenuKeyboard = {
 	reply_markup: {
 		keyboard: [
 			[
-				{ text: '📊 Mening statistika' },
+				{ text: '📊 Mening statistikam' },
 				{ text: "👥 Do'stlarni taklif qilish" },
 			],
 			[{ text: '🎯 Konkurslar' }, { text: '🏆 Reyting' }],
