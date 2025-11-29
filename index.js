@@ -3,16 +3,24 @@ const bot = require('./controllers/bot')
 const connectDB = require('./config/database')
 const User = require('./models/User')
 
+const express = require('express')
 const userController = require('./controllers/userController')
 const adminController = require('./controllers/adminController')
 const contestController = require('./controllers/contestController')
 const channelController = require('./controllers/channelController')
 
+const app = express()
 connectDB()
 
 console.log('🤖 Bot ishga tushdi...')
 
-// ==================== START COMMAND ====================
+app.get('/ping', (req, res) => {
+	res.send('pong')
+})
+
+app.listen(process.env.PORT || 3000, () => {
+	console.log('🌐 Keep-alive server ishga tushdi')
+})
 
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 	const chatId = msg.chat.id
