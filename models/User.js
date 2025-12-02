@@ -26,22 +26,23 @@ const userSchema = new mongoose.Schema({
 	chatId: {
 		type: Number,
 		required: true,
-		unique: true,
+		unique: true
 	},
 	username: String,
 	fullName: String,
+	profilePhoto: String,
 	joinDate: {
 		type: Date,
-		default: Date.now,
+		default: Date.now
 	},
 	isSubscribed: {
 		type: Boolean,
-		default: false,
+		default: false
 	},
 	refBy: Number,
 	referrals: {
 		type: Number,
-		default: 0,
+		default: 0
 	},
 	referredUsers: [
 		{
@@ -49,32 +50,32 @@ const userSchema = new mongoose.Schema({
 			username: String,
 			fullName: String,
 			joinDate: Date,
-			points: Number,
-		},
+			points: Number
+		}
 	],
 	points: {
 		type: Number,
-		default: 0,
+		default: 0
 	},
 	lastActive: {
 		type: Date,
-		default: Date.now,
+		default: Date.now
 	},
 	isAdmin: {
 		type: Boolean,
-		default: false,
+		default: false
 	},
 	dailyBonusClaimed: {
 		type: Boolean,
-		default: false,
+		default: false
 	},
 	lastBonusDate: Date,
 	participatedContests: [
 		{
 			type: mongoose.Schema.Types.ObjectId,
-			ref: 'Contest',
-		},
-	],
+			ref: 'Contest'
+		}
+	]
 })
 
 module.exports = mongoose.model('User', userSchema)

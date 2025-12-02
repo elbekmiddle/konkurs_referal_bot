@@ -19,7 +19,7 @@ app.get('/ping', (req, res) => {
 })
 
 app.listen(process.env.PORT || 3000, () => {
-	console.log('🌐 Keep-alive server ishga tushdi')
+	console.log('🌐 Keep alive server ishga tushdi')
 })
 
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
@@ -32,22 +32,31 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 		let user = await User.findOne({ chatId })
 
 		if (!user) {
+			let profilePhotoUrl = null
+
+			try {
+				const photos = await bot.getUserProfilePhotos(chatId, { limit: 1 })
+				if (photos.total_count > 0) {
+					const fileId = photos.photos[0][0].file_id // eng kichik rasm (kichik thumbnail)
+					profilePhotoUrl = await bot.getFileLink(fileId) // URL ga aylantirish
+				}
+			} catch (err) {
+				console.log('⚠️ Profil rasm topilmadi:', err.message)
+			}
+
 			user = new User({
 				chatId,
 				username: msg.chat.username || "Noma'lum",
-				fullName: `${msg.chat.first_name || ''} ${
-					msg.chat.last_name || ''
-				}`.trim(),
+				fullName: `${msg.chat.first_name || ''} ${msg.chat.last_name || ''}`.trim(),
+				profilePhoto: profilePhotoUrl,
 				joinDate: new Date(),
 				isSubscribed: false,
 				refBy: startParam ? parseInt(startParam) : null,
 				referrals: 0,
 				points: 0,
 				lastActive: new Date(),
-				isAdmin: process.env.ADMIN_IDS
-					? process.env.ADMIN_IDS.includes(chatId.toString())
-					: false,
-				referredUsers: [],
+				isAdmin: process.env.ADMIN_IDS ? process.env.ADMIN_IDS.includes(chatId.toString()) : false,
+				referredUsers: []
 			})
 
 			await user.save()
@@ -71,14 +80,45 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 		await userController.handleStart(chatId, startParam)
 	} catch (error) {
 		console.error('❌ Start command xatosi:', error)
-		await bot.sendMessage(
-			chatId,
-			"❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
-		)
+		await bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
 	}
 })
 
-// ==================== BIRTA MESSAGE HANDLER ====================
+// index.js ga qo'shing
+bot.onText(/\/channels/, async msg => {
+	const chatId = msg.chat.id
+	const channels = await Channel.find()
+	console.log('📊 Kanallar:', channels)
+
+	if (channels.length === 0) {
+		await bot.sendMessage(chatId, '📭 Kanallar mavjud emas')
+	} else {
+		let message = '📋 Kanallar:\n\n'
+		channels.forEach((channel, index) => {
+			message += `${index + 1}. ${channel.name}\n`
+			message += `   Link: ${channel.link}\n`
+			message += `   Active: ${channel.isActive ? '✅' : '❌'}\n`
+			message += `   Requires: ${channel.requiresSubscription ? '✅' : '❌'}\n\n`
+		})
+		await bot.sendMessage(chatId, message)
+	}
+})
+
+bot.onText(/\/mystatus/, async msg => {
+	const chatId = msg.chat.id
+	const user = await User.findOne({ chatId })
+
+	if (user) {
+		const message = `👤 Foydalanuvchi holati:
+ID: ${user.chatId}
+Ism: ${user.fullName}
+Obuna: ${user.isSubscribed ? '✅' : '❌'}
+Ball: ${user.points}
+Takliflar: ${user.referrals}`
+
+		await bot.sendMessage(chatId, message)
+	}
+})
 
 bot.on('message', async msg => {
 	const chatId = msg.chat.id
@@ -156,7 +196,7 @@ bot.on('callback_query', async callbackQuery => {
 		const user = await User.findOne({ chatId })
 		if (!user) {
 			await bot.answerCallbackQuery(callbackQuery.id, {
-				text: '❌ Foydalanuvchi topilmadi',
+				text: '❌ Foydalanuvchi topilmadi'
 			})
 			return
 		}
@@ -166,7 +206,7 @@ bot.on('callback_query', async callbackQuery => {
 	} catch (error) {
 		console.error('❌ Callback query xatosi:', error)
 		await bot.answerCallbackQuery(callbackQuery.id, {
-			text: '❌ Xatolik yuz berdi',
+			text: '❌ Xatolik yuz berdi'
 		})
 	}
 })
@@ -201,10 +241,7 @@ async function handleAdminMessages(chatId, text, msg) {
 			default:
 				// Faqat matnli xabarlar uchun
 				if (text && !text.startsWith('/')) {
-					await bot.sendMessage(
-						chatId,
-						"⚠️ Noma'lum amal. Iltimos, menyudan tanlang."
-					)
+					await bot.sendMessage(chatId, "⚠️ Noma'lum amal. Iltimos, menyudan tanlang.")
 				}
 		}
 	} catch (error) {
@@ -238,22 +275,16 @@ async function handleUserMessages(chatId, text, msg) {
 				await userController.showMainMenu(chatId)
 				break
 			case "✅ Obuna bo'ldim":
-				const subscription = await channelController.checkUserSubscription(
-					chatId
-				)
+				const subscription = await channelController.checkUserSubscription(chatId)
 				if (subscription.subscribed) {
 					const user = await User.findOne({ chatId })
 					if (user) {
 						user.isSubscribed = true
 						await user.save()
 					}
-					await bot.sendMessage(
-						chatId,
-						"✅ Rahmat! Barcha kanallarga obuna bo'lgansiz.",
-						{
-							reply_markup: { remove_keyboard: true },
-						}
-					)
+					await bot.sendMessage(chatId, "✅ Rahmat! Barcha kanallarga obuna bo'lgansiz.", {
+						reply_markup: { remove_keyboard: true }
+					})
 					await userController.showMainMenu(chatId)
 				} else {
 					await bot.sendMessage(
@@ -309,10 +340,7 @@ async function handleCallbackQuery(chatId, data, user) {
 					break
 				case data.match(/^contest_join_/)?.input:
 					const joinContestId = data.split('_')[2]
-					await contestController.handleContestParticipation(
-						chatId,
-						joinContestId
-					)
+					await contestController.handleContestParticipation(chatId, joinContestId)
 					break
 				default:
 					console.log("👤 User noma'lum callback:", data)
@@ -356,6 +384,7 @@ async function handleCallbackQuery(chatId, data, user) {
 				break
 
 			// Kanal callbacklari
+			// Kanal callbacklari
 			case 'add_channel':
 				await channelController.startAddChannel(chatId)
 				break
@@ -372,14 +401,15 @@ async function handleCallbackQuery(chatId, data, user) {
 				break
 			case data.match(/^toggle_subscription_/)?.input:
 				const toggleSubChannelId = data.split('_')[2]
-				await channelController.toggleSubscriptionRequirement(
-					chatId,
-					toggleSubChannelId
-				)
+				await channelController.toggleSubscriptionRequirement(chatId, toggleSubChannelId)
 				break
 			case data.match(/^delete_channel_/)?.input:
 				const deleteChannelId = data.split('_')[2]
 				await channelController.deleteChannel(chatId, deleteChannelId)
+				break
+			case data.match(/^confirm_delete_/)?.input:
+				const confirmDeleteChannelId = data.split('_')[2]
+				await channelController.confirmDeleteChannel(chatId, confirmDeleteChannelId)
 				break
 			case data.match(/^edit_channel_/)?.input:
 				const editChannelId = data.split('_')[2]
@@ -455,8 +485,8 @@ Agar muammo bo'lsa, admin bilan bog'laning.`
 	await bot.sendMessage(chatId, helpMessage, {
 		reply_markup: {
 			keyboard: [[{ text: '🔙 Orqaga' }]],
-			resize_keyboard: true,
-		},
+			resize_keyboard: true
+		}
 	})
 }
 

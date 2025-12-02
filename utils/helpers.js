@@ -74,11 +74,35 @@ async function checkUserSubscription(chatId) {
 	}
 }
 
+const escapeMarkdown = text => {
+	if (!text) return ''
+	return text
+		.replace(/\_/g, '\\_')
+		.replace(/\*/g, '\\*')
+		.replace(/\[/g, '\\[')
+		.replace(/\]/g, '\\]')
+		.replace(/\(/g, '\\(')
+		.replace(/\)/g, '\\)')
+		.replace(/\~/g, '\\~')
+		.replace(/\`/g, '\\`')
+		.replace(/\>/g, '\\>')
+		.replace(/\#/g, '\\#')
+		.replace(/\+/g, '\\+')
+		.replace(/\-/g, '\\-')
+		.replace(/\=/g, '\\=')
+		.replace(/\|/g, '\\|')
+		.replace(/\{/g, '\\{')
+		.replace(/\}/g, '\\}')
+		.replace(/\./g, '\\.')
+		.replace(/\!/g, '\\!')
+}
+
 module.exports = {
 	addReferral,
 	getUserRank,
 	getLeaderboard,
 	formatUserStats,
 	formatLeaderboard,
-	checkUserSubscription,
+	escapeMarkdown,
+	checkUserSubscription
 }
