@@ -86,7 +86,7 @@ class ChannelService {
 			await channel.save()
 			return { success: true, channel }
 		} catch (error) {
-			console.error('Kanal qoşishda xato:', error)
+			console.error('Kanal qoshishda xato:', error)
 			return { success: false, error: error.message }
 		}
 	}

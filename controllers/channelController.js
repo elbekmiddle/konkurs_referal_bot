@@ -6,6 +6,74 @@ const axios = require('axios')
 // User states for channel management
 const userStates = {}
 
+// ==================== MARKDOWN ESCAPE FUNCTIONS ====================
+
+// Markdown'ni escape qilish funksiyasi
+const escapeMarkdown = text => {
+	if (!text) return text
+
+	// Telegram Markdown V2 special characters
+	const specialChars = [
+		'_',
+		'*',
+		'[',
+		']',
+		'(',
+		')',
+		'~',
+		'`',
+		'>',
+		'#',
+		'+',
+		'-',
+		'=',
+		'|',
+		'{',
+		'}',
+		'.',
+		'!'
+	]
+
+	let escapedText = text
+	specialChars.forEach(char => {
+		// Regex bilan almashtirish
+		const regex = new RegExp(`\\${char}`, 'g')
+		escapedText = escapedText.replace(regex, `\\${char}`)
+	})
+
+	return escapedText
+}
+
+// Xavfsiz xabar yuborish funksiyasi
+const sendSafeMessage = async (chatId, text, options = {}) => {
+	try {
+		// Agar parse_mode Markdown bo'lsa, textni escape qilamiz
+		if (options.parse_mode === 'Markdown' || options.parse_mode === 'MarkdownV2') {
+			const escapedText = escapeMarkdown(text)
+			return await bot.sendMessage(chatId, escapedText, options)
+		}
+
+		// Oddiy text uchun
+		return await bot.sendMessage(chatId, text, options)
+	} catch (error) {
+		console.error('❌ Xabar yuborish xatosi:', error)
+
+		// Agar Markdown xatosi bo'lsa, parse_mode ni o'chirib qayta urinib ko'ramiz
+		if (
+			error.response &&
+			error.response.body &&
+			error.response.body.description &&
+			error.response.body.description.includes("can't parse entities")
+		) {
+			console.log("⚠️ Markdown xatosi, parse_mode o'chirilmoqda...")
+			options.parse_mode = null
+			return await bot.sendMessage(chatId, text, options)
+		}
+
+		throw error
+	}
+}
+
 // ==================== AVTOMATIK KANAL ID OLISH ====================
 
 const getRealChannelId = async username => {
@@ -20,23 +88,47 @@ const getRealChannelId = async username => {
 		}
 
 		try {
-			const url = `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getChat?chat_id=${chatId}`
-			console.log(`📡 So'rov yuborilmoqda: ${url}`)
-
-			const res = await axios.get(url)
-
-			if (res.data.ok && res.data.result) {
-				const id = res.data.result.id.toString()
-				console.log(`✅ Kanal ID topildi: ${id} (${chatId})`)
+			// YANGI: Bot orqali kanal ma'lumotlarini olish
+			const chat = await bot.getChat(chatId)
+			if (chat && chat.id) {
+				const id = chat.id.toString()
+				console.log(`✅ Kanal ID topildi (bot API): ${id} (${chatId})`)
 				return id
 			}
 		} catch (error) {
-			console.log('❌ Kanal ID olish xatosi:', error.message)
+			console.log(`⚠️ Bot API orqali ID olish xatosi: ${error.message}`)
 
-			// ID sifatida urinib ko'ramiz
-			if (username.startsWith('-100')) {
-				console.log(`📊 ID sifatida tekshirilmoqda: ${username}`)
-				return username
+			// YANGI: Telegram Bot API orqali urinib ko'ramiz
+			try {
+				const url = `https://api.telegram.org/bot${
+					process.env.BOT_TOKEN
+				}/getChat?chat_id=${encodeURIComponent(chatId)}`
+				console.log(`📡 So'rov yuborilmoqda: ${url}`)
+
+				const res = await axios.get(url, {
+					timeout: 5000,
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				})
+
+				if (res.data.ok && res.data.result && res.data.result.id) {
+					const id = res.data.result.id.toString()
+					console.log(`✅ Kanal ID topildi (REST API): ${id} (${chatId})`)
+					return id
+				}
+			} catch (apiError) {
+				console.log(`❌ REST API orqali ID olish xatosi: ${apiError.message}`)
+
+				// Agar kanal public bo'lsa va username orqali murojaat qilish mumkin bo'lsa
+				if (chatId.startsWith('@')) {
+					console.log(`ℹ️ Kanal ID olinmadi. Bot kanalda admin emas yoki kanal private.`)
+					console.log(`ℹ️ Admin tomonidan manual ravishda ID kiritilishi kerak.`)
+
+					// Username orqali link yaratish
+					const usernameOnly = chatId.replace('@', '')
+					return `@${usernameOnly}` // Faqat username ni qaytaramiz
+				}
 			}
 		}
 
@@ -58,7 +150,7 @@ const startAddChannel = async chatId => {
 			channelData: {}
 		}
 
-		await bot.sendMessage(
+		await sendSafeMessage(
 			chatId,
 			'📢 *Yangi kanal qoʻshish*\n\n📝 *Kanal nomini kiriting:*\n\nMasalan: "Telegram Rasmiy Kanal"',
 			{
@@ -72,7 +164,7 @@ const startAddChannel = async chatId => {
 		)
 	} catch (error) {
 		console.error('❌ Kanal qoʻshishni boshlash xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
@@ -87,7 +179,7 @@ const processAddChannel = async (chatId, msg) => {
 		// Bekor qilish
 		if (text === '❌ Bekor qilish') {
 			delete userStates[chatId]
-			await bot.sendMessage(chatId, '❌ Kanal qoʻshish bekor qilindi.', {
+			await sendSafeMessage(chatId, '❌ Kanal qoʻshish bekor qilindi.', {
 				reply_markup: { remove_keyboard: true }
 			})
 			return
@@ -96,7 +188,7 @@ const processAddChannel = async (chatId, msg) => {
 		switch (state.step) {
 			case 'name':
 				if (!text || text.trim().length === 0) {
-					await bot.sendMessage(
+					await sendSafeMessage(
 						chatId,
 						'❌ Kanal nomi boʻsh boʻlmasligi kerak. Iltimos, qayta kiriting:'
 					)
@@ -104,7 +196,7 @@ const processAddChannel = async (chatId, msg) => {
 				}
 				state.channelData.name = text.trim()
 				state.step = 'username'
-				await bot.sendMessage(
+				await sendSafeMessage(
 					chatId,
 					'🔗 *Kanal username yoki linkini kiriting:*\n\nMasalan: "@telegram" yoki "telegram" (t.me/ bilan emas)',
 					{
@@ -119,7 +211,7 @@ const processAddChannel = async (chatId, msg) => {
 
 			case 'username':
 				if (!text || text.trim().length === 0) {
-					await bot.sendMessage(
+					await sendSafeMessage(
 						chatId,
 						'❌ Kanal username boʻsh boʻlmasligi kerak. Iltimos, qayta kiriting:'
 					)
@@ -145,12 +237,12 @@ const processAddChannel = async (chatId, msg) => {
 				break
 
 			default:
-				await bot.sendMessage(chatId, '❌ Nomaʻlum amal')
+				await sendSafeMessage(chatId, '❌ Nomaʻlum amal')
 				delete userStates[chatId]
 		}
 	} catch (error) {
 		console.error('❌ Kanal qoʻshish jarayoni xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 		delete userStates[chatId]
 	}
 }
@@ -167,7 +259,7 @@ const saveChannel = async (chatId, channelData) => {
 		})
 
 		if (existingChannel) {
-			await bot.sendMessage(
+			await sendSafeMessage(
 				chatId,
 				`❌ Bu kanal allaqachon mavjud!\n\n📝 Nomi: ${existingChannel.name}\n🔗 Username: ${existingChannel.username}`,
 				{
@@ -181,13 +273,40 @@ const saveChannel = async (chatId, channelData) => {
 		const realId = await getRealChannelId(channelData.username)
 
 		if (!realId) {
-			await bot.sendMessage(
+			// YANGI: Agar ID olinmasa, admin tomonidan manual kiritish imkoniyati
+			const usernameOnly = channelData.username.replace('@', '')
+
+			await sendSafeMessage(
 				chatId,
-				`❌ Kanal ID si olinmadi!\n\nUsername: ${channelData.username}\n\nEslatma: Bot kanalda admin bo'lishi kerak yoki username noto'g'ri.`,
+				`⚠️ *Kanal ID si avtomatik olinmadi!*\n\n` +
+					`🔗 Kanal: ${channelData.username}\n\n` +
+					`*Sabablar:*\n` +
+					`• Bot kanalda admin emas\n` +
+					`• Kanal private (yopiq)\n` +
+					`• Username noto'g'ri\n\n` +
+					`*Yechim:*\n` +
+					`1. Botni kanalga admin qiling\n` +
+					`2. Yoki kanal ID sini manual kiriting\n\n` +
+					`Kanal ID ni shu formatda kiriting: *-100xxxxxxxxxx*`,
 				{
-					reply_markup: { remove_keyboard: true }
+					parse_mode: 'Markdown',
+					reply_markup: {
+						keyboard: [
+							[{ text: '❌ Bekor qilish' }],
+							[{ text: 'ℹ️ Kanal ID qanday olish kerak?' }]
+						],
+						resize_keyboard: true
+					}
 				}
 			)
+
+			// User state ni yangilash
+			userStates[chatId] = {
+				action: 'add_channel_manual_id',
+				step: 'manual_id',
+				channelData: channelData
+			}
+
 			return
 		}
 
@@ -214,7 +333,7 @@ const saveChannel = async (chatId, channelData) => {
 			`🔗 Link: ${link}\n` +
 			`📊 Holati: 🟢 Faol`
 
-		await bot.sendMessage(chatId, successMessage, {
+		await sendSafeMessage(chatId, successMessage, {
 			reply_markup: { remove_keyboard: true }
 		})
 
@@ -224,10 +343,105 @@ const saveChannel = async (chatId, channelData) => {
 		await showChannelsList(chatId)
 	} catch (error) {
 		console.error('❌ Kanal saqlash xatosi:', error)
-		await bot.sendMessage(
+		await sendSafeMessage(
 			chatId,
 			'❌ Kanal saqlashda xatolik yuz berdi. Iltimos, qayta urinib koʻring.'
 		)
+	}
+}
+
+// Manual kanal ID qo'shish
+const processManualChannelId = async (chatId, msg) => {
+	try {
+		const state = userStates[chatId]
+		if (!state || state.action !== 'add_channel_manual_id') return
+
+		const text = msg.text
+
+		if (text === '❌ Bekor qilish') {
+			delete userStates[chatId]
+			await sendSafeMessage(chatId, '❌ Kanal qoʻshish bekor qilindi.', {
+				reply_markup: { remove_keyboard: true }
+			})
+			return
+		}
+
+		if (text === 'ℹ️ Kanal ID qanday olish kerak?') {
+			const helpMessage =
+				`📝 *Kanal ID qanday olish kerak?*\n\n` +
+				`1. Kanalni forward qiling boshqa biriga\n` +
+				`2. Forward qilingan xabarni ko'rib, ID ni oling\n` +
+				`3. ID *-100* bilan boshlanadi\n` +
+				`4. Masalan: *-1001234567890*\n\n` +
+				`Yoki:\n` +
+				`1. @username_to_id_bot ga kanalni yuboring\n` +
+				`2. Bot sizga ID ni aytadi\n\n` +
+				`*Kanal ID sini kiriting:*`
+
+			await sendSafeMessage(chatId, helpMessage, {
+				parse_mode: 'Markdown',
+				reply_markup: {
+					keyboard: [[{ text: '❌ Bekor qilish' }]],
+					resize_keyboard: true
+				}
+			})
+			return
+		}
+
+		// Kanal ID ni tekshirish
+		if (!text.startsWith('-100')) {
+			await sendSafeMessage(
+				chatId,
+				'❌ Notoʻgʻri ID formati. ID -100 bilan boshlanishi kerak.\n\nMasalan: -1001234567890\n\nQayta kiriting:',
+				{
+					reply_markup: {
+						keyboard: [[{ text: '❌ Bekor qilish' }]],
+						resize_keyboard: true
+					}
+				}
+			)
+			return
+		}
+
+		// Linkni yaratish
+		const usernameOnly = state.channelData.username.replace('@', '')
+		const link = `https://t.me/${usernameOnly}`
+
+		// Yangi kanal yaratish
+		const newChannel = new Channel({
+			name: state.channelData.name,
+			username: state.channelData.username,
+			link: link,
+			channelId: text.trim(), // Manual ID
+			isActive: true,
+			requiresSubscription: true
+		})
+
+		await newChannel.save()
+
+		const successMessage =
+			`✅ Kanal muvaffaqiyatli qoʻshildi! (Manual ID)\n\n` +
+			`📝 Nomi: ${state.channelData.name}\n` +
+			`🔗 Username: ${state.channelData.username}\n` +
+			`🆔 ID: ${text.trim()}\n` +
+			`🔗 Link: ${link}\n` +
+			`📊 Holati: 🟢 Faol\n\n` +
+			`⚠️ *Eslatma:* Bot kanalda admin emas, shuning uchun avtomatik tekshira olmaydi.`
+
+		await sendSafeMessage(chatId, successMessage, {
+			reply_markup: { remove_keyboard: true }
+		})
+
+		console.log(`✅ Yangi kanal qoʻshildi (manual): ${state.channelData.name} (ID: ${text.trim()})`)
+
+		delete userStates[chatId]
+
+		// Kanal ro'yxatiga qaytish
+		await showChannelsList(chatId)
+	} catch (error) {
+		console.error('❌ Manual kanal ID qoʻshish xatosi:', error)
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
+		delete userStates[chatId]
 	}
 }
 
@@ -263,13 +477,13 @@ const showChannelsList = async chatId => {
 			{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }
 		])
 
-		await bot.sendMessage(chatId, message, {
+		await sendSafeMessage(chatId, message, {
 			parse_mode: 'Markdown',
 			reply_markup: { inline_keyboard }
 		})
 	} catch (error) {
 		console.error('❌ Kanallar roʻyxatini koʻrsatish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
@@ -279,7 +493,7 @@ const showChannelDetail = async (chatId, channelId) => {
 		const channel = await Channel.findById(channelId)
 
 		if (!channel) {
-			await bot.sendMessage(chatId, '❌ Kanal topilmadi')
+			await sendSafeMessage(chatId, '❌ Kanal topilmadi')
 			return
 		}
 
@@ -291,10 +505,10 @@ const showChannelDetail = async (chatId, channelId) => {
 
 		const message =
 			`📺 *Kanal tafsilotlari*\n\n` +
-			`📝 *Nomi:* ${channel.name}\n` +
-			`🔗 *Username:* ${channel.username}\n` +
+			`📝 *Nomi:* ${escapeMarkdown(channel.name)}\n` +
+			`🔗 *Username:* ${escapeMarkdown(channel.username)}\n` +
 			`🔗 *Link:* ${channel.link}\n` +
-			`🆔 *ID:* ${channel.channelId}\n` +
+			`🆔 *ID:* ${escapeMarkdown(channel.channelId)}\n` +
 			`📊 *Holati:* ${status}\n` +
 			`🔔 *Obuna talabi:* ${subscriptionRequired}\n` +
 			`📅 *Qoʻshilgan sana:* ${createdDate}`
@@ -330,13 +544,13 @@ const showChannelDetail = async (chatId, channelId) => {
 			]
 		]
 
-		await bot.sendMessage(chatId, message, {
+		await sendSafeMessage(chatId, message, {
 			parse_mode: 'Markdown',
 			reply_markup: { inline_keyboard }
 		})
 	} catch (error) {
 		console.error('❌ Kanal tafsilotlarini koʻrsatish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
@@ -346,7 +560,7 @@ const toggleChannel = async (chatId, channelId) => {
 		const channel = await Channel.findById(channelId)
 
 		if (!channel) {
-			await bot.sendMessage(chatId, '❌ Kanal topilmadi')
+			await sendSafeMessage(chatId, '❌ Kanal topilmadi')
 			return
 		}
 
@@ -354,13 +568,13 @@ const toggleChannel = async (chatId, channelId) => {
 		await channel.save()
 
 		const status = channel.isActive ? 'faol' : 'nofaol'
-		await bot.sendMessage(chatId, `✅ "${channel.name}" kanali ${status} holatga o'zgartirildi`)
+		await sendSafeMessage(chatId, `✅ "${channel.name}" kanali ${status} holatga o'zgartirildi`)
 
 		// Kanal tafsilotlariga qaytish
 		await showChannelDetail(chatId, channelId)
 	} catch (error) {
 		console.error('❌ Kanal holatini oʻzgartirish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
@@ -370,7 +584,7 @@ const toggleSubscriptionRequirement = async (chatId, channelId) => {
 		const channel = await Channel.findById(channelId)
 
 		if (!channel) {
-			await bot.sendMessage(chatId, '❌ Kanal topilmadi')
+			await sendSafeMessage(chatId, '❌ Kanal topilmadi')
 			return
 		}
 
@@ -378,13 +592,13 @@ const toggleSubscriptionRequirement = async (chatId, channelId) => {
 		await channel.save()
 
 		const status = channel.requiresSubscription ? 'talab qilinadi' : 'talab qilinmaydi'
-		await bot.sendMessage(chatId, `✅ "${channel.name}" kanali uchun obuna ${status}`)
+		await sendSafeMessage(chatId, `✅ "${channel.name}" kanali uchun obuna ${status}`)
 
 		// Kanal tafsilotlariga qaytish
 		await showChannelDetail(chatId, channelId)
 	} catch (error) {
 		console.error('❌ Obuna talabini oʻzgartirish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
@@ -394,7 +608,7 @@ const deleteChannel = async (chatId, channelId) => {
 		const channel = await Channel.findById(channelId)
 
 		if (!channel) {
-			await bot.sendMessage(chatId, '❌ Kanal topilmadi')
+			await sendSafeMessage(chatId, '❌ Kanal topilmadi')
 			return
 		}
 
@@ -410,9 +624,11 @@ const deleteChannel = async (chatId, channelId) => {
 			]
 		}
 
-		await bot.sendMessage(
+		await sendSafeMessage(
 			chatId,
-			`⚠️ *"${channelName}" kanalini o'chirishni tasdiqlaysizmi?*\n\nBu amalni qaytarib bo'lmaydi!`,
+			`⚠️ *"${escapeMarkdown(
+				channelName
+			)}" kanalini o'chirishni tasdiqlaysizmi?*\n\nBu amalni qaytarib bo'lmaydi!`,
 			{
 				parse_mode: 'Markdown',
 				reply_markup: confirmKeyboard
@@ -420,7 +636,7 @@ const deleteChannel = async (chatId, channelId) => {
 		)
 	} catch (error) {
 		console.error('❌ Kanalni oʻchirish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
@@ -430,14 +646,14 @@ const confirmDeleteChannel = async (chatId, channelId) => {
 		const channel = await Channel.findById(channelId)
 
 		if (!channel) {
-			await bot.sendMessage(chatId, '❌ Kanal topilmadi')
+			await sendSafeMessage(chatId, '❌ Kanal topilmadi')
 			return
 		}
 
 		const channelName = channel.name
 		await Channel.findByIdAndDelete(channelId)
 
-		await bot.sendMessage(chatId, `✅ *"${channelName}" kanali o'chirildi!*`, {
+		await sendSafeMessage(chatId, `✅ *"${escapeMarkdown(channelName)}" kanali o'chirildi!*`, {
 			parse_mode: 'Markdown'
 		})
 
@@ -445,7 +661,7 @@ const confirmDeleteChannel = async (chatId, channelId) => {
 		await showChannelsList(chatId)
 	} catch (error) {
 		console.error("❌ Kanalni o'chirishni tasdiqlash xatosi:", error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
@@ -455,7 +671,7 @@ const startEditChannel = async (chatId, channelId) => {
 		const channel = await Channel.findById(channelId)
 
 		if (!channel) {
-			await bot.sendMessage(chatId, '❌ Kanal topilmadi')
+			await sendSafeMessage(chatId, '❌ Kanal topilmadi')
 			return
 		}
 
@@ -470,11 +686,12 @@ const startEditChannel = async (chatId, channelId) => {
 			}
 		}
 
-		await bot.sendMessage(
+		// Markdown'siz yuborish
+		await sendSafeMessage(
 			chatId,
-			`✏️ *Kanalni tahrirlash*\n\n📝 *Joriy nom:* ${channel.name}\n\n*Yangi nomni kiriting:*`,
+			`✏️ Kanalni tahrirlash\n\n📝 Joriy nom: ${channel.name}\n\nYangi nomni kiriting:`,
 			{
-				parse_mode: 'Markdown',
+				parse_mode: null,
 				reply_markup: {
 					keyboard: [[{ text: '❌ Bekor qilish' }]],
 					resize_keyboard: true
@@ -483,11 +700,10 @@ const startEditChannel = async (chatId, channelId) => {
 		)
 	} catch (error) {
 		console.error('❌ Kanal tahrirlashni boshlash xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 
-// Kanal tahrirlash jarayoni
 const processEditChannel = async (chatId, msg) => {
 	try {
 		const state = userStates[chatId]
@@ -498,7 +714,7 @@ const processEditChannel = async (chatId, msg) => {
 		// Bekor qilish
 		if (text === '❌ Bekor qilish') {
 			delete userStates[chatId]
-			await bot.sendMessage(chatId, '❌ Tahrirlash bekor qilindi.', {
+			await sendSafeMessage(chatId, '❌ Tahrirlash bekor qilindi.', {
 				reply_markup: { remove_keyboard: true }
 			})
 			return
@@ -507,7 +723,7 @@ const processEditChannel = async (chatId, msg) => {
 		switch (state.step) {
 			case 'name':
 				if (!text || text.trim().length === 0) {
-					await bot.sendMessage(
+					await sendSafeMessage(
 						chatId,
 						'❌ Kanal nomi boʻsh boʻlmasligi kerak. Iltimos, qayta kiriting:'
 					)
@@ -515,11 +731,13 @@ const processEditChannel = async (chatId, msg) => {
 				}
 				state.channelData.name = text.trim()
 				state.step = 'username'
-				await bot.sendMessage(
+
+				// Markdown'siz yuborish
+				await sendSafeMessage(
 					chatId,
-					`🔗 *Yangi kanal username kiriting:*\n\nJoriy: ${state.channelData.username}`,
+					`🔗 Yangi kanal username kiriting:\n\nJoriy: ${state.channelData.username}`,
 					{
-						parse_mode: 'Markdown',
+						parse_mode: null,
 						reply_markup: {
 							keyboard: [[{ text: '❌ Bekor qilish' }]],
 							resize_keyboard: true
@@ -530,7 +748,7 @@ const processEditChannel = async (chatId, msg) => {
 
 			case 'username':
 				if (!text || text.trim().length === 0) {
-					await bot.sendMessage(
+					await sendSafeMessage(
 						chatId,
 						'❌ Kanal username boʻsh boʻlmasligi kerak. Iltimos, qayta kiriting:'
 					)
@@ -556,12 +774,12 @@ const processEditChannel = async (chatId, msg) => {
 				break
 
 			default:
-				await bot.sendMessage(chatId, '❌ Nomaʻlum amal')
+				await sendSafeMessage(chatId, '❌ Nomaʻlum amal')
 				delete userStates[chatId]
 		}
 	} catch (error) {
 		console.error('❌ Kanal tahrirlash jarayoni xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 		delete userStates[chatId]
 	}
 }
@@ -573,46 +791,78 @@ const updateChannel = async (chatId, channelId, channelData) => {
 		const realId = await getRealChannelId(channelData.username)
 
 		if (!realId) {
-			await bot.sendMessage(
+			// Agar ID olinmasa, eski ID ni saqlaymiz
+			const existingChannel = await Channel.findById(channelId)
+			const channelIdToUse = existingChannel
+				? existingChannel.channelId
+				: `@${channelData.username.replace('@', '')}`
+
+			await sendSafeMessage(
 				chatId,
-				`❌ *Kanal ID si olinmadi!*\n\nUsername: ${channelData.username}\n\nEslatma: Bot kanalda admin bo'lishi kerak yoki username noto'g'ri.`,
+				`⚠️ *Yangi kanal ID si olinmadi!*\n\n` +
+					`🔗 Username: ${escapeMarkdown(channelData.username)}\n` +
+					`ℹ️ Eski ID saqlandi: ${escapeMarkdown(channelIdToUse)}\n\n` +
+					`*Sabab:* Bot kanalda admin emas yoki kanal private.`,
 				{
 					parse_mode: 'Markdown',
 					reply_markup: { remove_keyboard: true }
 				}
 			)
-			return
+
+			// Eski ID bilan yangilash
+			const link = `https://t.me/${channelData.username.replace('@', '')}`
+
+			await Channel.findByIdAndUpdate(channelId, {
+				name: channelData.name,
+				username: channelData.username,
+				link: link
+				// channelId: channelIdToUse // Eski ID ni saqlaymiz
+			})
+
+			const successMessage =
+				`✅ *Kanal muvaffaqiyatli yangilandi!*\n\n` +
+				`📝 *Yangi nom:* ${escapeMarkdown(channelData.name)}\n` +
+				`🔗 *Yangi username:* ${escapeMarkdown(channelData.username)}\n` +
+				`🔗 *Yangi link:* ${link}\n\n` +
+				`⚠️ *Eslatma:* Kanal ID o'zgarmadi, chunki bot kanalda admin emas.`
+
+			await sendSafeMessage(chatId, successMessage, {
+				parse_mode: 'Markdown',
+				reply_markup: { remove_keyboard: true }
+			})
+
+			console.log(`✅ Kanal yangilandi (ID o'zgarmadi): ${channelData.name}`)
+		} else {
+			// Yangi ID bilan yangilash
+			const link = `https://t.me/${channelData.username.replace('@', '')}`
+
+			await Channel.findByIdAndUpdate(channelId, {
+				name: channelData.name,
+				username: channelData.username,
+				link: link,
+				channelId: realId
+			})
+
+			const successMessage =
+				`✅ *Kanal muvaffaqiyatli yangilandi!*\n\n` +
+				`📝 *Yangi nom:* ${escapeMarkdown(channelData.name)}\n` +
+				`🔗 *Yangi username:* ${escapeMarkdown(channelData.username)}\n` +
+				`🆔 *Yangi ID:* ${realId}\n` +
+				`🔗 *Yangi link:* ${link}`
+
+			await sendSafeMessage(chatId, successMessage, {
+				parse_mode: 'Markdown',
+				reply_markup: { remove_keyboard: true }
+			})
+
+			console.log(`✅ Kanal yangilandi: ${channelData.name} (Yangi ID: ${realId})`)
 		}
-
-		// Linkni yaratish
-		const link = `https://t.me/${channelData.username.replace('@', '')}`
-
-		await Channel.findByIdAndUpdate(channelId, {
-			name: channelData.name,
-			username: channelData.username,
-			link: link,
-			channelId: realId
-		})
-
-		const successMessage =
-			`✅ *Kanal muvaffaqiyatli yangilandi!*\n\n` +
-			`📝 *Yangi nom:* ${channelData.name}\n` +
-			`🔗 *Yangi username:* ${channelData.username}\n` +
-			`🆔 *Yangi ID:* ${realId}\n` +
-			`🔗 *Yangi link:* ${link}`
-
-		await bot.sendMessage(chatId, successMessage, {
-			parse_mode: 'Markdown',
-			reply_markup: { remove_keyboard: true }
-		})
-
-		console.log(`✅ Kanal yangilandi: ${channelData.name} (ID: ${realId})`)
 
 		// Yangilangan kanal tafsilotlariga qaytish
 		await showChannelDetail(chatId, channelId)
 	} catch (error) {
 		console.error('❌ Kanal yangilash xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Kanal yangilashda xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Kanal yangilashda xatolik yuz berdi')
 	}
 }
 
@@ -625,48 +875,6 @@ const getActiveChannels = async () => {
 	} catch (error) {
 		console.error('❌ Faol kanallarni olish xatosi:', error)
 		return []
-	}
-}
-
-// Soddalashtirilgan obuna tekshirish - FAQAT QO'LDA TEKSHIRISH
-const checkUserSubscription = async chatId => {
-	try {
-		const channels = await getActiveChannels()
-
-		if (channels.length === 0) {
-			return {
-				subscribed: true,
-				channels: [],
-				message: '✅ Majburiy kanallar mavjud emas',
-				noChannels: true
-			}
-		}
-
-		// Bot tekshira olmaydi, shuning uchun har doim qo'lda tekshirish kerak
-		const subscriptionResults = channels.map(channel => ({
-			channel: channel,
-			subscribed: false,
-			requiresManualCheck: true,
-			canCheckViaBot: false,
-			message: "Qo'lda tekshirish talab qilinadi"
-		}))
-
-		return {
-			subscribed: false,
-			channels: subscriptionResults,
-			requiresManualCheck: true,
-			checkedViaBot: false,
-			message: "📋 Quyidagi kanallarga obuna bo'lganingizni tekshiring"
-		}
-	} catch (error) {
-		console.error('❌ Obuna tekshirish xatosi:', error)
-		return {
-			subscribed: false,
-			channels: [],
-			hasErrors: true,
-			message: '❌ Tekshirishda xatolik yuz berdi',
-			requiresManualCheck: true
-		}
 	}
 }
 
@@ -716,12 +924,12 @@ const showUserChannels = async (chatId, subscriptionResult = null) => {
 			if (subscriptionResult.noChannels) {
 				message = `✅ Hozircha majburiy kanallar mavjud emas.\nSiz botdan to'liq foydalanishingiz mumkin!`
 
-				await bot.sendMessage(chatId, message)
+				await sendSafeMessage(chatId, message)
 				return { hasChannels: false }
 			} else if (subscriptionResult.subscribed) {
 				message = `✅ Tabriklaymiz! Siz barcha kanallarga obuna bo'lgansiz! 🎉`
 
-				await bot.sendMessage(chatId, message)
+				await sendSafeMessage(chatId, message)
 				return { hasChannels: false, subscribed: true }
 			} else {
 				message = `📢 *Botdan to'liq foydalanish uchun quyidagi kanallarga obuna bo'ling:*\n\n`
@@ -732,7 +940,7 @@ const showUserChannels = async (chatId, subscriptionResult = null) => {
 		}
 
 		if (channels.length === 0) {
-			await bot.sendMessage(chatId, message)
+			await sendSafeMessage(chatId, message)
 			return { hasChannels: false }
 		}
 
@@ -764,7 +972,7 @@ const showUserChannels = async (chatId, subscriptionResult = null) => {
 			}
 		])
 
-		await bot.sendMessage(chatId, message, {
+		await sendSafeMessage(chatId, message, {
 			parse_mode: 'Markdown',
 			reply_markup: { inline_keyboard }
 		})
@@ -772,7 +980,7 @@ const showUserChannels = async (chatId, subscriptionResult = null) => {
 		return { hasChannels: true }
 	} catch (error) {
 		console.error('❌ Foydalanuvchi uchun kanallarni koʻrsatish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+		await sendSafeMessage(chatId, '❌ Xatolik yuz berdi')
 		return { hasChannels: false, error: true }
 	}
 }
@@ -796,10 +1004,125 @@ const confirmUserSubscription = async chatId => {
 	}
 }
 
+// ==================== ASOSIY OBUNA TEKSHIRISH FUNKSIYASI ====================
+
+const checkAndVerifySubscription = async chatId => {
+	try {
+		console.log(`🔍 Obuna tekshirilmoqda: ${chatId}`)
+
+		// 1. Foydalanuvchini bazadan topish
+		let user = await User.findOne({ chatId: chatId })
+
+		if (!user) {
+			// Agar foydalanuvchi bazada yo'q bo'lsa, yaratish
+			user = new User({
+				chatId: chatId,
+				isSubscribed: false,
+				points: 0,
+				referrals: 0
+			})
+			await user.save()
+			console.log(`✅ Yangi foydalanuvchi yaratildi: ${chatId}`)
+		}
+
+		// 2. Agar allaqachon obuna bo'lsa
+		if (user.isSubscribed) {
+			console.log(`✅ Foydalanuvchi allaqachon obuna bo'lgan: ${chatId}`)
+			return {
+				subscribed: true,
+				message: "✅ Siz allaqachon obuna bo'lgansiz!"
+			}
+		}
+
+		// 3. Majburiy kanallarni tekshirish
+		const requiredChannels = await Channel.find({
+			isActive: true,
+			requiresSubscription: true
+		})
+
+		if (requiredChannels.length === 0) {
+			// Majburiy kanallar yo'q, avtomatik obuna qilish
+			user.isSubscribed = true
+			await user.save()
+
+			return {
+				subscribed: true,
+				message: "✅ Majburiy kanallar yo'q, avtomatik obuna qilindi."
+			}
+		}
+
+		// 4. Kanalga obuna bo'lishni so'rash
+		return {
+			subscribed: false,
+			requiresManualCheck: true,
+			message: "📢 Iltimos, kanallarga obuna bo'ling va tasdiqlang.",
+			channels: requiredChannels.map(ch => ({
+				channel: ch,
+				subscribed: false,
+				requiresManualCheck: true
+			}))
+		}
+	} catch (error) {
+		console.error('❌ Check and verify subscription xatosi:', error)
+		return {
+			success: false,
+			message: '❌ Tekshirishda xatolik yuz berdi.'
+		}
+	}
+}
+
+// Obunani manual tasdiqlash
+const confirmUserSubscriptionManually = async chatId => {
+	try {
+		const user = await User.findOne({ chatId: chatId })
+
+		if (!user) {
+			return {
+				success: false,
+				message: '❌ Foydalanuvchi topilmadi.'
+			}
+		}
+
+		// Foydalanuvchini obuna qilib qo'yamiz
+		user.isSubscribed = true
+		await user.save()
+
+		console.log(`✅ ${chatId} obunani tasdiqladi`)
+
+		// Muvaffaqiyat xabari
+		const successMessage =
+			`✅ *Tabriklaymiz!* 🎉\n\n` +
+			`Siz barcha kanallarga obuna bo'ldingiz va endi botdan to'liq foydalana olasiz!\n\n` +
+			`*Sizning imkoniyatlaringiz:*\n` +
+			`🎯 Konkurslarda qatnashish\n` +
+			`👥 Do'stlarni taklif qilish\n` +
+			`🏆 Ballar yig'ish\n` +
+			`📊 Statistikanizni ko'rish`
+
+		await sendSafeMessage(chatId, successMessage, {
+			parse_mode: 'Markdown'
+		})
+
+		return {
+			success: true,
+			message: '✅ Obuna muvaffaqiyatli tasdiqlandi!'
+		}
+	} catch (error) {
+		console.error('❌ Manual subscription confirmation xatosi:', error)
+		return {
+			success: false,
+			message: '❌ Tasdiqlashda xatolik yuz berdi.'
+		}
+	}
+}
+
+// ==================== MAIN EXPORT ====================
+
 module.exports = {
 	userStates,
 	startAddChannel,
 	processAddChannel,
+	processManualChannelId, // YANGI QO'SHILDI
 	showChannelsList,
 	showChannelDetail,
 	toggleChannel,
@@ -809,8 +1132,18 @@ module.exports = {
 	startEditChannel,
 	processEditChannel,
 	getActiveChannels,
-	checkUserSubscription,
+
+	// ESKI FUNKSIYALAR (compatibility uchun)
+	checkUserSubscription: checkUserSubscriptionSimple,
 	checkUserSubscriptionSimple,
 	showUserChannels,
-	confirmUserSubscription
+	confirmUserSubscription,
+
+	// YANGI FUNKSIYALAR
+	confirmUserSubscriptionManually,
+	checkAndVerifySubscription,
+
+	// Utility funksiyalar
+	escapeMarkdown,
+	sendSafeMessage
 }

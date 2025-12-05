@@ -141,9 +141,9 @@ const handleBroadcast = async chatId => {
 
 		await bot.sendMessage(
 			chatId,
-			`📢 *Reklama yuborish*\n\n` +
+			`📢 *Xabar yuborish*\n\n` +
 				`👥 Jami foydalanuvchilar: ${totalUsers} ta\n\n` +
-				`📝 Yubormoqchi bo'lgan reklama xabarini yuboring:\n\n` +
+				`📝 Yubormoqchi bo'lgan xabarni yuboring:\n\n` +
 				`⚠️ *Eslatma:* Xabar matn, rasm, video yoki hujjat shaklida bo'lishi mumkin.`,
 			{
 				parse_mode: 'Markdown',
@@ -193,7 +193,7 @@ const processBroadcast = async (chatId, msg) => {
 				},
 			}
 
-			let previewMessage = `📢 *Reklama ko'rinishi:*\n\n`
+			let previewMessage = `📢 *Xabar ko'rinishi:*\n\n`
 
 			if (msg.text) {
 				previewMessage += msg.text
@@ -322,7 +322,7 @@ const sendBroadcast = async chatId => {
 
 		// Yakuniy natija
 		const resultMessage =
-			`📢 *Reklama yuborish yakunlandi!*\n\n` +
+			`📢 *Xabar yuborish yakunlandi!*\n\n` +
 			`👥 Jami foydalanuvchilar: ${totalUsers} ta\n` +
 			`✅ Muvaffaqiyatli yuborildi: ${successCount} ta\n` +
 			`❌ Yuborilmadi: ${failCount} ta\n` +
@@ -394,7 +394,6 @@ const showAllUsers = async (chatId, page = 1) => {
 
 		// TO'G'RILANGAN: Markdown emas, oddiy matn
 		let message = `👥 Barcha foydalanuvchilar\n\n`
-		message += `📊 Jami: ${totalUsers} ta foydalanuvchi\n`
 		message += `📄 Sahifa: ${page}/${totalPages}\n\n`
 
 		if (users.length === 0) {
@@ -417,14 +416,14 @@ const showAllUsers = async (chatId, page = 1) => {
 		const inline_keyboard = []
 
 		// Foydalanuvchilar tugmalari
-		users.forEach(user => {
-			inline_keyboard.push([
-				{
-					text: `${user.fullName} (${user.points}⭐)`,
-					callback_data: `view_user_${user.chatId}`,
-				},
-			])
-		})
+		// users.forEach(user => {
+		// 	inline_keyboard.push([
+		// 		{
+		// 			text: `${user.fullName} (${user.points}⭐)`,
+		// 			callback_data: `view_user_${user.chatId}`,
+		// 		},
+		// 	])
+		// })
 
 		// Navigatsiya tugmalari
 		const navButtons = []
@@ -452,10 +451,6 @@ const showAllUsers = async (chatId, page = 1) => {
 			inline_keyboard.push(navButtons)
 		}
 
-		// Boshqa funksiyalar tugmalari
-		inline_keyboard.push([
-			{ text: '📊 Statistika', callback_data: 'user_stats' },
-		])
 
 		inline_keyboard.push([
 			{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },

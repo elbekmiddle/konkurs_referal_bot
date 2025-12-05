@@ -18,7 +18,7 @@ const adminKeyboard = {
 	reply_markup: {
 		keyboard: [
 			[{ text: '👥 Foydalanuvchilar' }],
-			[{ text: '📊 Statistika' }, { text: '📢 Reklama' }],
+			[{ text: '📊 Statistika' }, { text: '📢 Xabar' }],
 			[{ text: '📺 Kanallar' }, { text: '🎯 Konkurslar' }],
 			[{ text: '🔙 Asosiy menyu' }],
 		],

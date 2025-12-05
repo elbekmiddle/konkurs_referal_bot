@@ -56,7 +56,7 @@ class ChannelWizard {
 		return {
 			step: 'link',
 			message:
-				'✅ **Nomi saqlandi!**\n\n**2-bosqich:** Kanal linkini kiriting:\n\n🔗 *Format: https://t.me/... yoki @...*\n*Misol: https://t.me/super_anatomiya*\n*Yoki: @doctorsteam*',
+				'✅ **Nomi saqlandi!**\n\n**2-bosqich:** Kanal linkini kiriting:\n\n🔗 *Format: https://t.me/... yoki @...*\n*Misol: https://t.me/super_anatomiya*\n*Yoki: @doctors_team*',
 		}
 	}
 
