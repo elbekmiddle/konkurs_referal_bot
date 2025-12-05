@@ -1089,7 +1089,6 @@ const confirmUserSubscriptionManually = async chatId => {
 
 		console.log(`✅ ${chatId} obunani tasdiqladi`)
 
-		// Muvaffaqiyat xabari
 		const successMessage =
 			`✅ *Tabriklaymiz!* 🎉\n\n` +
 			`Siz barcha kanallarga obuna bo'ldingiz va endi botdan to'liq foydalana olasiz!\n\n` +

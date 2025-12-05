@@ -1,68 +1,141 @@
-const bot = require('../config/bot')
+// utils/messageManager.js
+const bot = require('../controllers/bot')
 
-class MessageManager {
-	constructor() {
-		this.userLastMessages = new Map()
-	}
+// Har bir foydalanuvchining oxirgi xabar ID larini saqlash
+const userLastMessages = {}
 
-	// Yangi xabar yuborish va eskisini o'chirish
-	async sendNewMessage(chatId, text, options = {}) {
-		try {
-			// Avvalgi xabarni o'chirish
-			await this.deleteLastMessage(chatId)
+/**
+ * Xabarni yuborish va eski xabarni o'chirish
+ */
+async function sendMessage(chatId, text, options = {}) {
+	try {
+		// Avval eski xabarni o'chirish
+		await deleteLastMessage(chatId)
 
-			// Yangi xabar yuborish
-			const newMessage = await bot.sendMessage(chatId, text, options)
+		// Yangi xabarni yuborish
+		const message = await bot.sendMessage(chatId, text, options)
 
-			// Yangi xabarni saqlash
-			this.userLastMessages.set(chatId, newMessage.message_id)
+		// Yangi xabar ID sini saqlash
+		saveLastMessage(chatId, message.message_id)
 
-			return newMessage
-		} catch (error) {
-			console.error('Xabar yuborishda xato:', error)
-			// O'chirishda xato bo'lsa, oddiy yuborish
-			return await bot.sendMessage(chatId, text, options)
-		}
-	}
-
-	// Avvalgi xabarni o'chirish
-	async deleteLastMessage(chatId) {
-		try {
-			const lastMessageId = this.userLastMessages.get(chatId)
-			if (lastMessageId) {
-				await bot.deleteMessage(chatId, lastMessageId)
-				this.userLastMessages.delete(chatId)
-			}
-		} catch (error) {
-			// Xabarni o'chirishda xato (masalan, xabar eski)
-			this.userLastMessages.delete(chatId)
-		}
-	}
-
-	// Xabarni yangilash
-	async editMessage(chatId, messageId, text, options = {}) {
-		try {
-			await bot.editMessageText(text, {
-				chat_id: chatId,
-				message_id: messageId,
-				...options,
-			})
-		} catch (error) {
-			console.error('Xabarni yangilashda xato:', error)
-		}
-	}
-
-	// Keyboardni yangilash
-	async updateKeyboard(chatId, messageId, newKeyboard) {
-		try {
-			await bot.editMessageReplyMarkup(newKeyboard, {
-				chat_id: chatId,
-				message_id: messageId,
-			})
-		} catch (error) {
-			console.error('Keyboard yangilashda xato:', error)
-		}
+		return message
+	} catch (error) {
+		console.error('❌ Xabar yuborish xatosi:', error)
+		// Agar xatolik bo'lsa, oddiy yuborish
+		const message = await bot.sendMessage(chatId, text, options)
+		saveLastMessage(chatId, message.message_id)
+		return message
 	}
 }
 
-module.exports = new MessageManager()
+/**
+ * Inline keyboard bilan xabar yuborish
+ */
+async function sendInlineMessage(chatId, text, inlineKeyboard = [], options = {}) {
+	const messageOptions = {
+		parse_mode: 'Markdown',
+		reply_markup: {
+			inline_keyboard: inlineKeyboard
+		},
+		...options
+	}
+
+	return await sendMessage(chatId, text, messageOptions)
+}
+
+/**
+ * Xabarni tahrirlash
+ */
+async function editMessage(chatId, messageId, text, options = {}) {
+	try {
+		return await bot.editMessageText(text, {
+			chat_id: chatId,
+			message_id: messageId,
+			parse_mode: options.parse_mode || 'Markdown',
+			reply_markup: options.reply_markup
+		})
+	} catch (error) {
+		console.error('❌ Xabarni tahrirlash xatosi:', error)
+		return null
+	}
+}
+
+/**
+ * Callback query xabarini tahrirlash
+ */
+async function editCallbackMessage(callbackQuery, text, options = {}) {
+	try {
+		const chatId = callbackQuery.message.chat.id
+		const messageId = callbackQuery.message.message_id
+
+		return await bot.editMessageText(text, {
+			chat_id: chatId,
+			message_id: messageId,
+			parse_mode: options.parse_mode || 'Markdown',
+			reply_markup: options.reply_markup
+		})
+	} catch (error) {
+		console.error('❌ Callback xabarini tahrirlash xatosi:', error)
+		return null
+	}
+}
+
+/**
+ * Eski xabarni o'chirish
+ */
+async function deleteLastMessage(chatId) {
+	try {
+		if (userLastMessages[chatId]) {
+			await bot.deleteMessage(chatId, userLastMessages[chatId])
+			delete userLastMessages[chatId]
+		}
+	} catch (error) {
+		// Xatoni ignore qilamiz, chunki xabar allaqachon o'chirilgan bo'lishi mumkin
+	}
+}
+
+/**
+ * Xabar ID sini saqlash
+ */
+function saveLastMessage(chatId, messageId) {
+	userLastMessages[chatId] = messageId
+}
+
+/**
+ * Joriy xabar ID sini olish
+ */
+function getLastMessageId(chatId) {
+	return userLastMessages[chatId]
+}
+
+/**
+ * Barcha xabarlarni tozalash
+ */
+function clearMessages(chatId) {
+	delete userLastMessages[chatId]
+}
+
+/**
+ * Ko'p xabarlarni o'chirish
+ */
+async function deleteMessages(chatId, messageIds) {
+	try {
+		for (const messageId of messageIds) {
+			await bot.deleteMessage(chatId, messageId).catch(() => {})
+		}
+	} catch (error) {
+		console.error("❌ Xabarlarni o'chirish xatosi:", error)
+	}
+}
+
+module.exports = {
+	sendMessage,
+	sendInlineMessage,
+	editMessage,
+	editCallbackMessage,
+	deleteLastMessage,
+	saveLastMessage,
+	getLastMessageId,
+	clearMessages,
+	deleteMessages
+}

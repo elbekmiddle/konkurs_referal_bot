@@ -15,3 +15,7 @@ joinDate
 points
 0 shunaqa turda va nechta odam taklif qilgani ismi va necha bal olgani shunaqa narsalari va konkurs botlardagi qolgan funksiyalar 
 @Tibbiy_konkursbot shunga oxshagan buni menda tayyor kodni bor 
+
+
+
+149.154.167.220:443  telegram bot api
