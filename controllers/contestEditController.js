@@ -5,7 +5,6 @@ const bot = require('./bot')
 
 const editStates = {}
 
-// ==================== KONKURSNI TAHRIRLASHNI BOSHLASH ====================
 
 const startEditContest = async (chatId, contestId) => {
 	try {
@@ -125,9 +124,6 @@ const handleEditFieldSelection = async (chatId, data) => {
 		}
 
 		let message = `<b>${fieldLabels[field]}</b>\n\n`
-		message += `📋 <b>Joriy qiymat:</b> ${safeCurrentValue}\n\n`
-		message += fieldInstructions[field]
-
 		if (field === 'image') {
 			message += '\n\nRasm yuborish uchun:\n• 📸 Photo sifatida yoki\n• 📎 Document sifatida'
 

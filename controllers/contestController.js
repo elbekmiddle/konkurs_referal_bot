@@ -8,7 +8,43 @@ const contestScheduler = require('./contestScheduler')
 
 const userStates = {}
 
-// ==================== KONKURS YARATISH ====================
+// ==================== YANGI FUNKSIYA: COMMAND ANIQLASH ====================
+
+const isCommand = text => {
+	if (!text) return false
+	const commands = [
+		'/start',
+		'/help',
+		'/contest',
+		'/contests',
+		'/admin',
+		'/myinfo',
+		'/referral',
+		'/stats',
+		'/top',
+		'/kanal',
+		'/channel'
+	]
+	return commands.some(cmd => text.startsWith(cmd))
+}
+
+const isMenuCommand = text => {
+	if (!text) return false
+	const menuItems = [
+		'🎯 Konkurslar',
+		'👤 Mening hisobim',
+		'🏆 Reyting',
+		"👥 Do'stlarni taklif qilish",
+		'📊 Statistika',
+		'🏠 Bosh menyu',
+		'◀️ Orqaga',
+		'📋 Barcha konkurslar',
+		'📺 Kanallarga obuna',
+		'💰 Ballarim',
+		'📈 Natijalar'
+	]
+	return menuItems.includes(text.trim())
+}
 
 const startContestCreation = async chatId => {
 	try {
@@ -22,24 +58,26 @@ const startContestCreation = async chatId => {
 
 		await bot.sendMessage(
 			chatId,
-			`🎯 *Yangi konkurs yaratish* 🎯\n\n` +
-				`Quyidagi qadamlarni ketma-ket bajarishingiz kerak:\n\n` +
-				`1. 🏷️ Konkurs nomi\n` +
-				`2. 📝 Konkurs tavsifi\n` +
-				`3. 💰 Mukofot ballari\n` +
-				`4. 🎁 Bonus ballari\n` +
-				`5. 👑 G'oliblar soni\n` +
-				`6. 📅 Boshlanish sanasi\n` +
-				`7. 📅 Tugash sanasi\n` +
-				`8. 🖼️ Konkurs rasmi\n\n` +
-				`*1-qadam:* Konkurs nomini kiriting:`,
-			{ parse_mode: 'Markdown', ...backKeyboard }
+			'<b>🎯 YANGI KONKURS YARATISH 🎯</b>\n\n' +
+				'Quyidagi qadamlarni ketma-ket bajarishingiz kerak:\n\n' +
+				'1. 🏷️ Konkurs nomi\n' +
+				'2. 📝 Konkurs tavsifi\n' +
+				'3. 💰 Mukofot ballari\n' +
+				'4. 🎁 Bonus ballari\n' +
+				"5. 👑 G'oliblar soni\n" +
+				'6. 📅 Boshlanish sanasi\n' +
+				'7. 📅 Tugash sanasi\n' +
+				'8. 🖼️ Konkurs rasmi\n\n' +
+				'<b>1-qadam:</b> Konkurs nomini kiriting:',
+			{ parse_mode: 'HTML', ...backKeyboard }
 		)
 	} catch (error) {
 		console.error('Konkurs yaratishni boshlash xatosi:', error)
 		await bot.sendMessage(chatId, '❌ Konkurs yaratishni boshlashda xatolik.')
 	}
 }
+
+// ==================== KONKURS YARATISH JARAYONI ====================
 
 const processContestCreation = async (chatId, msg) => {
 	try {
@@ -66,10 +104,10 @@ const processContestCreation = async (chatId, msg) => {
 
 				await bot.sendMessage(
 					chatId,
-					`✅ *Nomi saqlandi:* ${state.data.name}\n\n` +
-						`*2-qadam:* Konkurs tavsifini kiriting:\n\n` +
+					`✅ <b>Nomi saqlandi:</b> ${state.data.name}\n\n` +
+						`<b>2-qadam:</b> Konkurs tavsifini kiriting:\n\n` +
 						`📝 Konkurs haqida batafsil ma'lumot yozing.`,
-					{ parse_mode: 'Markdown' }
+					{ parse_mode: 'HTML' }
 				)
 				break
 
@@ -87,11 +125,11 @@ const processContestCreation = async (chatId, msg) => {
 
 				await bot.sendMessage(
 					chatId,
-					`✅ *Tavsif saqlandi*\n\n` +
-						`*3-qadam:* Mukofot ball miqdorini kiriting:\n\n` +
+					`✅ <b>Tavsif saqlandi</b>\n\n` +
+						`<b>3-qadam:</b> Mukofot ball miqdorini kiriting:\n\n` +
 						`💰 Konkurs g'oliblari qancha ball olishini kiriting.\n` +
-						`*Masalan:* 100, 500, 1000`,
-					{ parse_mode: 'Markdown' }
+						`<i>Masalan: 100, 500, 1000</i>`,
+					{ parse_mode: 'HTML' }
 				)
 				break
 
@@ -110,11 +148,11 @@ const processContestCreation = async (chatId, msg) => {
 
 				await bot.sendMessage(
 					chatId,
-					`✅ *Mukofot ballari saqlandi:* ${points} ball\n\n` +
-						`*4-qadam:* Bonus ball miqdorini kiriting:\n\n` +
+					`✅ <b>Mukofot ballari saqlandi:</b> ${points} ball\n\n` +
+						`<b>4-qadam:</b> Bonus ball miqdorini kiriting:\n\n` +
 						`🎁 Konkursda qatnashgan har bir foydalanuvchi qancha bonus ball olishini kiriting.\n` +
-						`*Masalan:* 10, 25, 50`,
-					{ parse_mode: 'Markdown' }
+						`<i>Masalan: 10, 25, 50</i>`,
+					{ parse_mode: 'HTML' }
 				)
 				break
 
@@ -133,11 +171,11 @@ const processContestCreation = async (chatId, msg) => {
 
 				await bot.sendMessage(
 					chatId,
-					`✅ *Bonus ballari saqlandi:* ${bonus} ball\n\n` +
-						`*5-qadam:* G'oliblar sonini kiriting:\n\n` +
+					`✅ <b>Bonus ballari saqlandi:</b> ${bonus} ball\n\n` +
+						`<b>5-qadam:</b> G'oliblar sonini kiriting:\n\n` +
 						`👑 Konkursda nechta odam g'olib bo'lishini kiriting.\n` +
-						`*Masalan:* 1, 3, 5, 10`,
-					{ parse_mode: 'Markdown' }
+						`<i>Masalan: 1, 3, 5, 10</i>`,
+					{ parse_mode: 'HTML' }
 				)
 				break
 
@@ -156,14 +194,14 @@ const processContestCreation = async (chatId, msg) => {
 
 				await bot.sendMessage(
 					chatId,
-					`✅ *G'oliblar soni saqlandi:* ${winnersCount} ta\n\n` +
-						`*6-qadam:* Boshlanish sanasini kiriting:\n\n` +
+					`✅ <b>G'oliblar soni saqlandi:</b> ${winnersCount} ta\n\n` +
+						`<b>6-qadam:</b> Boshlanish sanasini kiriting:\n\n` +
 						`📅 Quyidagi formatda sana kiriting:\n` +
-						`*YYYY-MM-DD*\n\n` +
-						`📌 *Misollar:*\n` +
+						`<code>YYYY-MM-DD</code>\n\n` +
+						`📌 <b>Misollar:</b>\n` +
 						`• 2025-12-01\n` +
 						`• 2025-12-15`,
-					{ parse_mode: 'Markdown' }
+					{ parse_mode: 'HTML' }
 				)
 				break
 
@@ -182,11 +220,11 @@ const processContestCreation = async (chatId, msg) => {
 
 				await bot.sendMessage(
 					chatId,
-					`✅ *Boshlanish sanasi saqlandi:* ${startDate.toLocaleDateString()}\n\n` +
-						`*7-qadam:* Tugash sanasini kiriting:\n\n` +
+					`✅ <b>Boshlanish sanasi saqlandi:</b> ${startDate.toLocaleDateString()}\n\n` +
+						`<b>7-qadam:</b> Tugash sanasini kiriting:\n\n` +
 						`📅 Quyidagi formatda sana kiriting:\n` +
-						`*YYYY-MM-DD*`,
-					{ parse_mode: 'Markdown' }
+						`<code>YYYY-MM-DD</code>`,
+					{ parse_mode: 'HTML' }
 				)
 				break
 
@@ -205,13 +243,14 @@ const processContestCreation = async (chatId, msg) => {
 
 				await bot.sendMessage(
 					chatId,
-					`✅ *Tugash sanasi saqlandi:* ${endDate.toLocaleDateString()}\n\n` +
-						`*8-qadam (oxirgi qadam):* Konkurs rasmini yuboring:\n\n` +
-						`🖼️ Rasmni *istalgan formatda* yuborishingiz mumkin:\n` +
+					`✅ <b>Tugash sanasi saqlandi:</b> ${endDate.toLocaleDateString()}\n\n` +
+						`<b>8-qadam (oxirgi qadam):</b> Konkurs rasmini yuboring:\n\n` +
+						`🖼️ Rasmni <b>istalgan formatda</b> yuborishingiz mumkin:\n` +
 						`• 📸 Photo sifatida\n` +
 						`• 📎 Document sifatida\n\n` +
-						`🔸 Agar rasm yubormasangiz, konkurs *rasmsiz* yaratiladi.`,
+						`🔸 Agar rasm yubormasangiz, konkurs <i>rasmsiz</i> yaratiladi.`,
 					{
+						parse_mode: 'HTML',
 						reply_markup: {
 							inline_keyboard: [
 								[
@@ -257,18 +296,7 @@ const processContestCreation = async (chatId, msg) => {
 	}
 }
 
-const handleSkipImage = async chatId => {
-	try {
-		const state = userStates[chatId]
-		if (!state || state.action !== 'create_contest') return
-
-		state.data.image = null
-		await saveContest(chatId, state.data)
-	} catch (error) {
-		console.error("Rasm o'tkazib yuborish xatosi:", error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
-	}
-}
+// ==================== KONKURS SAQLASH ====================
 
 const saveContest = async (chatId, contestData) => {
 	try {
@@ -287,28 +315,27 @@ const saveContest = async (chatId, contestData) => {
 
 		await contest.save()
 
-		// SCHEDULERGA QO'SHISH
+		// Schedulerga qo'shish
 		const contestScheduler = require('./contestScheduler')
 		contestScheduler.addContest(contest)
 
-		let successMessage = `🎉 *KONKURS MUVAFFAQIYATLI YARATILDI!* 🎉\n\n`
-		successMessage += `📋 *Konkurs ma'lumotlari:*\n`
-		successMessage += ` 🏷️  *Nomi:* ${contestData.name}\n`
-		successMessage += ` 💰  *Mukofot:* ${contestData.points} ball\n`
-		successMessage += ` 🎁  *Bonus:* ${contestData.bonus} ball\n`
-		successMessage += ` 👑  *G'oliblar soni:* ${contestData.winnersCount} ta\n`
-		successMessage += ` 📅  *Boshlanish:* ${contestData.startDate.toLocaleDateString()}\n`
-		successMessage += ` 📅  *Tugash:* ${contestData.endDate.toLocaleDateString()}\n`
-		successMessage += ` 🆔  *Konkurs ID:* ${contest._id}\n`
+		let successMessage = `<b>🎉 KONKURS MUVAFFAQIYATLI YARATILDI! 🎉</b>\n\n`
+		successMessage += `<b>📋 Konkurs ma'lumotlari:</b>\n`
+		successMessage += ` 🏷️  <b>Nomi:</b> ${contestData.name}\n`
+		successMessage += ` 💰  <b>Mukofot:</b> ${contestData.points} ball\n`
+		successMessage += ` 🎁  <b>Bonus:</b> ${contestData.bonus} ball\n`
+		successMessage += ` 👑  <b>G'oliblar soni:</b> ${contestData.winnersCount} ta\n`
+		successMessage += ` 📅  <b>Boshlanish:</b> ${contestData.startDate.toLocaleDateString()}\n`
+		successMessage += ` 📅  <b>Tugash:</b> ${contestData.endDate.toLocaleDateString()}\n`
 
 		if (contestData.image) {
-			successMessage += ` 🖼️  *Rasm:* ✅ Yuklandi\n`
+			successMessage += ` 🖼️  <b>Rasm:</b> ✅ Yuklandi\n`
 		} else {
-			successMessage += ` 🖼️  *Rasm:* ❌ Yo'q\n`
+			successMessage += ` 🖼️  <b>Rasm:</b> ❌ Yo'q\n`
 		}
 
-		successMessage += ` 📊  *Holati:* 🟢 Faol\n`
-		successMessage += ` ⏰  *Schedulerga qo'shildi:* ✅\n`
+		successMessage += ` 📊  <b>Holati:</b> 🟢 Faol\n`
+		successMessage += ` ⏰  <b>Schedulerga qo'shildi:</b> ✅\n`
 
 		const keyboard = {
 			reply_markup: {
@@ -328,12 +355,12 @@ const saveContest = async (chatId, contestData) => {
 		if (contestData.image) {
 			await bot.sendPhoto(chatId, contestData.image, {
 				caption: successMessage,
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: keyboard.reply_markup
 			})
 		} else {
 			await bot.sendMessage(chatId, successMessage, {
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: keyboard.reply_markup
 			})
 		}
@@ -355,10 +382,10 @@ const showAdminContestsList = async chatId => {
 		if (contests.length === 0) {
 			await bot.sendMessage(
 				chatId,
-				'📭 *Hozircha konkurslar mavjud emas.*\n\n' +
-					"➕ Yangi konkurs qo'shish uchun quyidagi tugmani bosing:",
+				'<b>📭 Hozircha konkurslar mavjud emas.</b>\n\n' +
+					"<b>➕ Yangi konkurs qo'shish uchun quyidagi tugmani bosing:</b>",
 				{
-					parse_mode: 'Markdown',
+					parse_mode: 'HTML',
 					reply_markup: {
 						inline_keyboard: [
 							[{ text: '➕ Yangi konkurs', callback_data: 'create_contest' }],
@@ -395,9 +422,9 @@ const showAdminContestsList = async chatId => {
 
 		await bot.sendMessage(
 			chatId,
-			"📋 *Konkurslar ro'yxati*\n\n" + "Konkursni ko'rish uchun ustiga bosing:",
+			"<b>📋 Konkurslar ro'yxati</b>\n\n" + "Konkursni ko'rish uchun ustiga bosing:",
 			{
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: keyboard.reply_markup
 			}
 		)
@@ -406,6 +433,8 @@ const showAdminContestsList = async chatId => {
 		await bot.sendMessage(chatId, "❌ Konkurslar ro'yxatini ko'rsatishda xatolik.")
 	}
 }
+
+// ==================== ADMIN KONKURS DETAILI ====================
 
 const showAdminContestDetail = async (chatId, contestId) => {
 	try {
@@ -421,19 +450,20 @@ const showAdminContestDetail = async (chatId, contestId) => {
 		const winnersCount = contest.winners?.length || 0
 		const hasRandomWinners = contest.randomWinnersSelected || false
 
-		let message = `🎯 *${contest.name}*\n\n`
-		message += `📝 ${contest.description}\n\n`
-		message += `📊 *Konkurs ma'lumotlari:*\n`
-		message += ` 💰  *Mukofot:* ${contest.points} ball\n`
-		message += ` 🎁  *Bonus:* ${contest.bonus} ball\n`
-		message += ` 👑  *G'oliblar soni:* ${contest.winnersCount} ta\n`
-		message += ` 📅  *Boshlanish:* ${contest.startDate.toLocaleDateString()}\n`
-		message += ` 📅  *Tugash:* ${contest.endDate.toLocaleDateString()}\n`
-		message += ` 👥  *Qatnashuvchilar:* ${participantsCount} ta\n`
-		message += ` 🏆  *G'oliblar:* ${winnersCount} ta\n`
-		message += ` 🎲  *Random tanlash:* ${hasRandomWinners ? '✅ Bajarilgan' : '❌ Bajarilmagan'}\n`
-		message += ` 📊  *Holati:* ${status}\n`
-		message += ` 🆔  *Konkurs ID:* ${contest._id}\n`
+		let message = `<b>🎯 ${contest.name}</b>\n\n`
+		message += `${contest.description}\n\n`
+		message += `<b>📊 Konkurs ma'lumotlari:</b>\n`
+		message += ` 💰  <b>Mukofot:</b> ${contest.points} ball\n`
+		message += ` 🎁  <b>Bonus:</b> ${contest.bonus} ball\n`
+		message += ` 👑  <b>G'oliblar soni:</b> ${contest.winnersCount} ta\n`
+		message += ` 📅  <b>Boshlanish:</b> ${contest.startDate.toLocaleDateString()}\n`
+		message += ` 📅  <b>Tugash:</b> ${contest.endDate.toLocaleDateString()}\n`
+		message += ` 👥  <b>Qatnashuvchilar:</b> ${participantsCount} ta\n`
+		message += ` 🏆  <b>G'oliblar:</b> ${winnersCount} ta\n`
+		message += ` 🎲  <b>Random tanlash:</b> ${
+			hasRandomWinners ? '✅ Bajarilgan' : '❌ Bajarilmagan'
+		}\n`
+		message += ` 📊  <b>Holati:</b> ${status}\n`
 
 		const keyboardRows = []
 
@@ -484,12 +514,12 @@ const showAdminContestDetail = async (chatId, contestId) => {
 		if (contest.image && contest.image.startsWith('http')) {
 			await bot.sendPhoto(chatId, contest.image, {
 				caption: message,
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: keyboard.reply_markup
 			})
 		} else {
 			await bot.sendMessage(chatId, message, {
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: keyboard.reply_markup
 			})
 		}
@@ -540,14 +570,16 @@ const showUserContestsList = async chatId => {
 
 		await bot.sendMessage(
 			chatId,
-			'🎯 Faol Konkurslar:\n\n' + "Konkurs haqida ma'lumot olish uchun ustiga bosing:",
-			keyboard
+			'<b>🎯 Faol Konkurslar:</b>\n\n' + "Konkurs haqida ma'lumot olish uchun ustiga bosing:",
+			{ parse_mode: 'HTML', ...keyboard }
 		)
 	} catch (error) {
 		console.error("User konkurslar ro'yxati xatosi:", error)
 		await bot.sendMessage(chatId, "❌ Konkurslarni ko'rsatishda xatolik.")
 	}
 }
+
+// ==================== USER KONKURS DETAILI ====================
 
 const showUserContestDetail = async (chatId, contestId) => {
 	try {
@@ -562,27 +594,34 @@ const showUserContestDetail = async (chatId, contestId) => {
 		const hasParticipated = contest.participants?.includes(chatId) || false
 		const canParticipate = user && user.isSubscribed && user.referrals >= 1
 
-		let message = `🎯 ${contest.name}\n\n`
-		message += `📝 ${contest.description}\n\n`
-		message += `💰 Mukofot: ${contest.points} ball\n`
-		message += `🎁 Qo'shimcha bonus: ${contest.bonus} ball\n`
-		message += `👑 G'oliblar soni: ${contest.winnersCount} ta\n`
-		message += `📅 Boshlanish: ${contest.startDate.toLocaleDateString()}\n`
-		message += `📅 Tugash: ${contest.endDate.toLocaleDateString()}\n`
-		message += `👥 Qatnashuvchilar: ${contest.participants?.length || 0} ta\n\n`
+		// CS2/Counter-Strike ko'rinishidagi dizayn
+		let message = '<b>━━━━━━━━━━━━━━━━━━━━</b>\n'
+		message += `<b>🎯 ${contest.name}</b>\n`
+		message += '<b>━━━━━━━━━━━━━━━━━━━━</b>\n\n'
+
+		message += `<b>📝 Tavsif:</b>\n${contest.description}\n\n`
+		message += '<b>━━━━━━━━━━━━━━━━━━━━</b>\n'
+		message += '<b>📊 KONKURS STATISTIKASI</b>\n'
+		message += '<b>━━━━━━━━━━━━━━━━━━━━</b>\n'
+		message += `💰 <b>Mukofot:</b> ${contest.points} ball\n`
+		message += `🎁 <b>Qo'shimcha bonus:</b> ${contest.bonus} ball\n`
+		message += `👑 <b>G'oliblar soni:</b> ${contest.winnersCount} ta\n`
+		message += `📅 <b>Boshlanish:</b> ${contest.startDate.toLocaleDateString()}\n`
+		message += `📅 <b>Tugash:</b> ${contest.endDate.toLocaleDateString()}\n`
+		message += `👥 <b>Qatnashuvchilar:</b> ${contest.participants?.length || 0} ta\n\n`
 
 		if (hasParticipated) {
-			message += '✅ Siz allaqachon qatnashgansiz!\n'
+			message += '<b>✅ SIZ QATNASHGANSIZ!</b>\n'
 			message += "📅 Konkurs tugagach, g'oliblar e'lon qilinadi."
 		} else if (!canParticipate) {
 			if (!user?.isSubscribed) {
-				message += "❌ Konkursga qatnashish uchun avval barcha kanallarga obuna bo'ling."
+				message += "<b>❌ Konkursga qatnashish uchun avval barcha kanallarga obuna bo'ling.</b>"
 			} else if (user.referrals < 1) {
 				message +=
-					"❌ Konkursga qatnashish uchun kamida 1 ta do'stingizni taklif qilishingiz kerak."
+					"<b>❌ Konkursga qatnashish uchun kamida 1 ta do'stingizni taklif qilishingiz kerak.</b>"
 			}
 		} else {
-			message += '🎉 Konkursda qatnashish uchun quyidagi tugmani bosing!'
+			message += '<b>🎉 Konkursda qatnashish uchun quyidagi tugmani bosing!</b>'
 		}
 
 		const keyboard = {
@@ -608,10 +647,11 @@ const showUserContestDetail = async (chatId, contestId) => {
 		if (contest.image && contest.image.startsWith('http')) {
 			await bot.sendPhoto(chatId, contest.image, {
 				caption: message,
+				parse_mode: 'HTML',
 				reply_markup: keyboard.reply_markup
 			})
 		} else {
-			await bot.sendMessage(chatId, message, keyboard)
+			await bot.sendMessage(chatId, message, { parse_mode: 'HTML', ...keyboard })
 		}
 	} catch (error) {
 		console.error('User konkurs tafsilotlari xatosi:', error)
@@ -619,7 +659,7 @@ const showUserContestDetail = async (chatId, contestId) => {
 	}
 }
 
-// ==================== BOSHQA FUNKSIYALAR ====================
+// ==================== KONKURSGA QATNASHISH ====================
 
 const handleContestParticipation = async (chatId, contestId) => {
 	try {
@@ -685,9 +725,12 @@ const handleContestParticipation = async (chatId, contestId) => {
 
 		await bot.sendMessage(
 			chatId,
-			`✅ Tabriklaymiz! Siz "${contest.name}" konkursida qatnashdingiz!\n\n` +
-				`🎁 Siz ${contest.bonus} bonus ball oldingiz!\n` +
-				`💰 Jami ballaringiz: ${user.points}`
+			`<b>✅ TABRIKLAYMIZ!</b>\n\n` +
+				`Siz "<b>${contest.name}</b>" konkursida qatnashdingiz!\n\n` +
+				`🎁 <b>Bonus:</b> ${contest.bonus} ball oldingiz!\n` +
+				`💰 <b>Jami ballaringiz:</b> ${user.points}\n\n` +
+				`<i>Konkurs tugagach, g'oliblar e'lon qilinadi!</i>`,
+			{ parse_mode: 'HTML' }
 		)
 	} catch (error) {
 		console.error('Konkursga qatnashish xatosi:', error)
@@ -695,114 +738,7 @@ const handleContestParticipation = async (chatId, contestId) => {
 	}
 }
 
-const toggleContest = async (chatId, contestId) => {
-	try {
-		const contest = await Contest.findById(contestId)
-
-		if (!contest) {
-			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
-			return
-		}
-
-		contest.isActive = !contest.isActive
-		await contest.save()
-
-		const status = contest.isActive ? 'faollashtirildi' : "to'xtatildi"
-
-		await bot.sendMessage(chatId, `✅ Konkurs ${status}!\n\n` + `🎯 ${contest.name}`)
-	} catch (error) {
-		console.error("Konkurs holatini o'zgartirish xatosi:", error)
-		await bot.sendMessage(chatId, "❌ Konkurs holatini o'zgartirishda xatolik.")
-	}
-}
-
-const deleteContest = async (chatId, contestId) => {
-	try {
-		const contest = await Contest.findById(contestId)
-
-		if (!contest) {
-			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
-			return
-		}
-
-		await Contest.findByIdAndDelete(contestId)
-
-		// Schedulerdan ham o'chirish
-		contestScheduler.removeContest(contestId)
-
-		await bot.sendMessage(chatId, `🗑️ Konkurs o'chirildi!\n\n` + `🎯 ${contest.name}`)
-	} catch (error) {
-		console.error("Konkurs o'chirish xatosi:", error)
-		await bot.sendMessage(chatId, "❌ Konkursni o'chirishda xatolik.")
-	}
-}
-
-// ==================== EDIT FUNCTIONS ====================
-
-const handleEditContest = async (chatId, contestId) => {
-	try {
-		await editController.startEditContest(chatId, contestId)
-	} catch (error) {
-		console.error('Konkurs tahrirlashni boshlash xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Konkursni tahrirlashda xatolik.')
-	}
-}
-
-const processContestEdit = async (chatId, msg) => {
-	try {
-		await editController.processEditContest(chatId, msg)
-	} catch (error) {
-		console.error('Konkurs tahrirlash jarayoni xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Tahrirlashda xatolik yuz berdi.')
-	}
-}
-
-// TO'G'RILANGAN processEditContest FUNKSIYASI
-const processEditContest = async (chatId, msg) => {
-	try {
-		const editState = editController.editStates?.[chatId]
-		if (!editState || editState.action !== 'edit_contest') return
-
-		console.log(`✏️ Processing edit contest for chatId: ${chatId}`)
-
-		// Edit controller orqali ishlov berish
-		await editController.processEditContest(chatId, msg)
-	} catch (error) {
-		console.error('❌ processEditContest xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Tahrirlashda xatolik yuz berdi.')
-	}
-}
-
-const handleEditFieldSelection = async (chatId, data) => {
-	try {
-		console.log(`🔧 Handling edit field selection: ${data}`)
-		await editController.handleEditFieldSelection(chatId, data)
-	} catch (error) {
-		console.error('❌ handleEditFieldSelection xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Maydon tanlashda xatolik.')
-	}
-}
-
-const handleSkipEditImage = async chatId => {
-	try {
-		console.log(`🖼️ Skipping edit image for chatId: ${chatId}`)
-		await editController.handleSkipEditImage(chatId)
-	} catch (error) {
-		console.error('❌ handleSkipEditImage xatosi:', error)
-		await bot.sendMessage(chatId, "❌ Rasm o'tkazib yuborishda xatolik.")
-	}
-}
-
-const showContestDetail = async (chatId, contestId) => {
-	try {
-		await editController.showContestDetail(chatId, contestId)
-	} catch (error) {
-		console.error('❌ showContestDetail xatosi:', error)
-		await bot.sendMessage(chatId, "❌ Konkurs ma'lumotlarini ko'rsatishda xatolik.")
-	}
-}
-
-// ==================== RESULTS FUNCTIONS ====================
+// ==================== KONKURS NATIJALARI ====================
 
 const handleContestResults = async (chatId, contestId) => {
 	try {
@@ -835,22 +771,37 @@ const handleContestResults = async (chatId, contestId) => {
 		// Ballar bo'yicha tartiblash
 		participantData.sort((a, b) => b.score - a.score)
 
-		let message = `🏆 <b>${contest.name} - NATIJALAR</b> 🏆\n\n`
-		message += `📊 <b> Ishtirokchilar soni: ${participantData.length} ta </b>\n`
-		message += `👑 <b> G'oliblar soni: ${contest.winnersCount} ta </b>\n\n`
+		// CS2/Counter-Strike style leaderboard
+		let message = '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n'
+		message += `<b>🏆 ${contest.name} - NATIJALAR 🏆</b>\n`
+		message += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n'
+
+		message += `<b>📊 Ishtirokchilar soni:</b> ${participantData.length} ta\n`
+		message += `<b>👑 G'oliblar soni:</b> ${contest.winnersCount} ta\n\n`
 
 		if (participantData.length > 0) {
-			message += `📈 <b> Reyting: </b>\n`
+			message += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n'
+			message += '<b>🏅 REYTING JADVALI</b>\n'
+			message += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n'
+
 			const showCount = Math.min(10, participantData.length)
 
 			for (let i = 0; i < showCount; i++) {
 				const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`
 				const user = participantData[i]
-				message += `${medal} ${user.fullName} (@${user.username || "Noma'lum"})\n`
-				message += `   ⭐ Ball: ${user.points} | 👥 Takliflar: ${user.referrals} | 🎯 Umumiy: ${user.score}\n\n`
+
+				// O'zining pozitsiyasi alohida highlight qilish
+				const isCurrentUser = user.chatId === chatId
+				const highlightStart = isCurrentUser ? '👉 ' : ''
+				const highlightEnd = isCurrentUser ? ' 👈' : ''
+
+				message += `${highlightStart}${medal} <b>${user.fullName}</b>${highlightEnd}\n`
+				message += `   👤 @${user.username || "Noma'lum"}\n`
+				message += `   ⭐ <b>Ball:</b> ${user.points} | 👥 <b>Takliflar:</b> ${user.referrals}\n`
+				message += `   🎯 <b>Umumiy:</b> ${user.score}\n\n`
 			}
 		} else {
-			message += '📭 <b> Hech kim konkursda qatnashmagan </b>\n'
+			message += '📭 <b>Hech kim konkursda qatnashmagan</b>\n'
 		}
 
 		const keyboard = {
@@ -858,19 +809,19 @@ const handleContestResults = async (chatId, contestId) => {
 				inline_keyboard: [
 					[
 						{
-							text: "🏆 <b> G'oliblarni aniqlash </b>",
+							text: "🏆 G'OLIBNI ANIQLASH",
 							callback_data: `calculate_results_${contestId}`
 						}
 					],
 					[
 						{
-							text: '💰 <b> Mukofotlarni taqsimlash </b>',
+							text: '💰 MUKOFOT BERISH',
 							callback_data: `distribute_rewards_${contestId}`
 						}
 					],
 					[
 						{
-							text: '◀️ <b> Orqaga </b>',
+							text: '◀️ ORQAGA',
 							callback_data: `admin_contest_${contestId}`
 						}
 					]
@@ -926,17 +877,26 @@ const calculateAndSendResults = async (chatId, contestId) => {
 		contest.isActive = false
 		await contest.save()
 
-		let adminMessage = `🏆 <b> KONKURS NATIJALARI </b> 🏆\n\n`
-		adminMessage += `🎯 <b> Konkurs: </b> ${contest.name}\n`
-		adminMessage += `📊 *Ishtirokchilar soni:* ${participantData.length} ta\n`
-		adminMessage += `👑 *G'oliblar soni:* ${winners.length} ta\n\n`
+		let adminMessage = '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n'
+		adminMessage += '<b>🏆 KONKURS NATIJALARI 🏆</b>\n'
+		adminMessage += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n'
+
+		adminMessage += `<b>🎯 Konkurs:</b> ${contest.name}\n`
+		adminMessage += `<b>📊 Ishtirokchilar soni:</b> ${participantData.length} ta\n`
+		adminMessage += `<b>👑 G'oliblar soni:</b> ${winners.length} ta\n\n`
 
 		if (winners.length > 0) {
-			adminMessage += `🥇 *G'OLIBLAR:*\n`
+			adminMessage += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n'
+			adminMessage += "<b>🥇 G'OLIBLAR RO'YXATI</b>\n"
+			adminMessage += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n'
+
 			winners.forEach((winner, index) => {
 				const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`
-				adminMessage += `${medal} ${winner.fullName} (@${winner.username || "Noma'lum"})\n`
-				adminMessage += `   ⭐ Ball: ${winner.points} | 👥 Takliflar: ${winner.referrals} | 🎯 Umumiy: ${winner.score}\n\n`
+				adminMessage += `${medal} <b>${winner.fullName}</b>\n`
+				adminMessage += `   👤 @${winner.username || "Noma'lum"}\n`
+				adminMessage += `   ⭐ <b>Ball:</b> ${winner.points}\n`
+				adminMessage += `   👥 <b>Takliflar:</b> ${winner.referrals}\n`
+				adminMessage += `   🎯 <b>Umumiy:</b> ${winner.score}\n\n`
 			})
 		}
 
@@ -945,19 +905,19 @@ const calculateAndSendResults = async (chatId, contestId) => {
 				inline_keyboard: [
 					[
 						{
-							text: "📤 G'oliblarga xabar yuborish",
+							text: "📤 G'OLIBLARGA XABAR YUBORISH",
 							callback_data: `notify_winners_${contestId}`
 						}
 					],
 					[
 						{
-							text: '💰 Mukofotlarni taqsimlash',
+							text: '💰 MUKOFOTLARNI TAQSIMLASH',
 							callback_data: `distribute_rewards_${contestId}`
 						}
 					],
 					[
 						{
-							text: '◀️ Konkursga qaytish',
+							text: '◀️ KONKURSGA QAYTISH',
 							callback_data: `admin_contest_${contestId}`
 						}
 					]
@@ -966,7 +926,7 @@ const calculateAndSendResults = async (chatId, contestId) => {
 		}
 
 		await bot.sendMessage(chatId, adminMessage, {
-			parse_mode: 'Markdown',
+			parse_mode: 'HTML',
 			reply_markup: adminKeyboard.reply_markup
 		})
 	} catch (error) {
@@ -1012,27 +972,28 @@ const distributeRewards = async (chatId, contestId) => {
 			}
 		}
 
-		await bot.sendMessage(
-			chatId,
-			`✅ *MUKOFOTLAR TAQSIMLANDI!*\n\n` +
-				`🎯 Konkurs: ${contest.name}\n` +
-				`🏆 G'oliblar: ${updatedCount} ta (${contest.points} ball har biri)\n` +
-				`🎁 Qatnashuvchilar: ${bonusCount} ta (${contest.bonus} ball har biri)\n\n` +
-				`💰 Jami ballar taqsimlandi!`,
-			{
-				parse_mode: 'Markdown',
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: '◀️ Konkursga qaytish',
-								callback_data: `admin_contest_${contestId}`
-							}
-						]
+		let message = '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n'
+		message += '<b>✅ MUKOFOTLAR TAQSIMLANDI!</b>\n'
+		message += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n'
+
+		message += `<b>🎯 Konkurs:</b> ${contest.name}\n`
+		message += `<b>🏆 G'oliblar:</b> ${updatedCount} ta (<b>${contest.points}</b> ball har biri)\n`
+		message += `<b>🎁 Qatnashuvchilar:</b> ${bonusCount} ta (<b>${contest.bonus}</b> ball har biri)\n\n`
+		message += '<b>💰 Jami ballar taqsimlandi!</b>'
+
+		await bot.sendMessage(chatId, message, {
+			parse_mode: 'HTML',
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{
+							text: '◀️ KONKURSGA QAYTISH',
+							callback_data: `admin_contest_${contestId}`
+						}
 					]
-				}
+				]
 			}
-		)
+		})
 	} catch (error) {
 		console.error('Mukofotlarni taqsimlash xatosi:', error)
 		await bot.sendMessage(chatId, '❌ Mukofotlarni taqsimlashda xatolik.')
@@ -1069,13 +1030,13 @@ const handleRandomWinners = async (chatId, contestId) => {
 
 		await bot.sendMessage(
 			chatId,
-			`🎲 *RANDOM G'OLIB ANIQLASH* 🎲\n\n` +
-				`🎯 Konkurs: *${contest.name}*\n` +
-				`👥 Qatnashuvchilar: *${participants.length} ta*\n\n` +
+			"<b>🎲 RANDOM G'OLIB ANIQLASH 🎲</b>\n\n" +
+				`<b>🎯 Konkurs:</b> ${contest.name}\n` +
+				`<b>👥 Qatnashuvchilar:</b> ${participants.length} ta\n\n` +
 				`Nechta g'olib aniqlashni hohlaysiz?\n` +
 				`🔢 Raqam kiriting (1 dan ${participants.length} gacha):`,
 			{
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: {
 					inline_keyboard: [[{ text: '🔙 Orqaga', callback_data: `admin_contest_${contestId}` }]]
 				}
@@ -1145,20 +1106,25 @@ const processRandomWinners = async (chatId, text) => {
 		await contest.save()
 
 		// Adminga natijalarni ko'rsatish
-		let message = `🎲 *RANDOM G'OLIBLAR ANIQLANDI!* 🎲\n\n`
-		message += `🎯 Konkurs: *${contest.name}*\n`
-		message += `👥 Qatnashuvchilar: *${participants.length} ta*\n`
-		message += `🏆 Tanlangan g'oliblar: *${winnersData.length} ta*\n\n`
+		let message = '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n'
+		message += "<b>🎲 RANDOM G'OLIBLAR ANIQLANDI! 🎲</b>\n"
+		message += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n'
+
+		message += `<b>🎯 Konkurs:</b> ${contest.name}\n`
+		message += `<b>👥 Qatnashuvchilar:</b> ${participants.length} ta\n`
+		message += `<b>🏆 Tanlangan g'oliblar:</b> ${winnersData.length} ta\n\n`
 
 		if (winnersData.length > 0) {
-			message += `🥇 *G'OLIBLAR RO'YXATI:*\n\n`
+			message += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n'
+			message += "<b>🥇 G'OLIBLAR RO'YXATI</b>\n"
+			message += '<b>━━━━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n'
 
 			winnersData.forEach((winner, index) => {
 				const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`
-				message += `${medal} *${winner.fullName}*\n`
+				message += `${medal} <b>${winner.fullName}</b>\n`
 				message += `   👤 @${winner.username || "Noma'lum"}\n`
-				message += `   ⭐ Ball: ${winner.points}\n`
-				message += `   👥 Takliflar: ${winner.referrals}\n\n`
+				message += `   ⭐ <b>Ball:</b> ${winner.points}\n`
+				message += `   👥 <b>Takliflar:</b> ${winner.referrals}\n\n`
 			})
 		}
 
@@ -1167,25 +1133,25 @@ const processRandomWinners = async (chatId, text) => {
 				inline_keyboard: [
 					[
 						{
-							text: "🏆 G'oliblarni tasdiqlash",
+							text: "🏆 G'OLIBLARNI TASDIQLASH",
 							callback_data: `confirm_random_winners_${contestId}`
 						}
 					],
 					[
 						{
-							text: "📤 G'oliblarga xabar yuborish",
+							text: "📤 G'OLIBLARGA XABAR YUBORISH",
 							callback_data: `notify_random_winners_${contestId}`
 						}
 					],
 					[
 						{
-							text: '💰 Mukofot berish',
+							text: '💰 MUKOFOT BERISH',
 							callback_data: `distribute_rewards_${contestId}`
 						}
 					],
 					[
 						{
-							text: '◀️ Orqaga',
+							text: '◀️ ORQAGA',
 							callback_data: `admin_contest_${contestId}`
 						}
 					]
@@ -1194,7 +1160,7 @@ const processRandomWinners = async (chatId, text) => {
 		}
 
 		await bot.sendMessage(chatId, message, {
-			parse_mode: 'Markdown',
+			parse_mode: 'HTML',
 			reply_markup: keyboard.reply_markup
 		})
 
@@ -1203,6 +1169,120 @@ const processRandomWinners = async (chatId, text) => {
 		console.error("Random g'oliblarni aniqlash xatosi:", error)
 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
 		delete userStates[chatId]
+	}
+}
+
+// ==================== QOLGAN FUNKSIYALAR ====================
+
+const handleSkipImage = async chatId => {
+	try {
+		const state = userStates[chatId]
+		if (!state || state.action !== 'create_contest') return
+
+		state.data.image = null
+		await saveContest(chatId, state.data)
+	} catch (error) {
+		console.error("Rasm o'tkazib yuborish xatosi:", error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+const toggleContest = async (chatId, contestId) => {
+	try {
+		const contest = await Contest.findById(contestId)
+
+		if (!contest) {
+			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+			return
+		}
+
+		contest.isActive = !contest.isActive
+		await contest.save()
+
+		const status = contest.isActive ? 'faollashtirildi' : "to'xtatildi"
+
+		await bot.sendMessage(chatId, `✅ Konkurs ${status}!\n\n` + `<b>🎯 ${contest.name}</b>`, {
+			parse_mode: 'HTML'
+		})
+	} catch (error) {
+		console.error("Konkurs holatini o'zgartirish xatosi:", error)
+		await bot.sendMessage(chatId, "❌ Konkurs holatini o'zgartirishda xatolik.")
+	}
+}
+
+const deleteContest = async (chatId, contestId) => {
+	try {
+		const contest = await Contest.findById(contestId)
+
+		if (!contest) {
+			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+			return
+		}
+
+		await Contest.findByIdAndDelete(contestId)
+
+		// Schedulerdan ham o'chirish
+		contestScheduler.removeContest(contestId)
+
+		await bot.sendMessage(chatId, `🗑️ Konkurs o'chirildi!\n\n` + `<b>🎯 ${contest.name}</b>`, {
+			parse_mode: 'HTML'
+		})
+	} catch (error) {
+		console.error("Konkurs o'chirish xatosi:", error)
+		await bot.sendMessage(chatId, "❌ Konkursni o'chirishda xatolik.")
+	}
+}
+
+// ==================== EDIT FUNCTIONS ====================
+
+const handleEditContest = async (chatId, contestId) => {
+	try {
+		await editController.startEditContest(chatId, contestId)
+	} catch (error) {
+		console.error('Konkurs tahrirlashni boshlash xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Konkursni tahrirlashda xatolik.')
+	}
+}
+
+const handleEditFieldSelection = async (chatId, data) => {
+	try {
+		console.log(`🔧 Handling edit field selection: ${data}`)
+		await editController.handleEditFieldSelection(chatId, data)
+	} catch (error) {
+		console.error('❌ handleEditFieldSelection xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Maydon tanlashda xatolik.')
+	}
+}
+
+const processEditContest = async (chatId, msg) => {
+	try {
+		const editState = editController.editStates?.[chatId]
+		if (!editState || editState.action !== 'edit_contest') return
+
+		console.log(`✏️ Processing edit contest for chatId: ${chatId}`)
+		await editController.processEditContest(chatId, msg)
+	} catch (error) {
+		console.error('❌ processEditContest xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Tahrirlashda xatolik yuz berdi.')
+	}
+}
+
+const handleSkipEditImage = async chatId => {
+	try {
+		console.log(`🖼️ Skipping edit image for chatId: ${chatId}`)
+		await editController.handleSkipEditImage(chatId)
+	} catch (error) {
+		console.error('❌ handleSkipEditImage xatosi:', error)
+		await bot.sendMessage(chatId, "❌ Rasm o'tkazib yuborishda xatolik.")
+	}
+}
+
+const showContestDetail = async (chatId, contestId) => {
+	try {
+		await editController.showContestDetail(chatId, contestId)
+	} catch (error) {
+		console.error('❌ showContestDetail xatosi:', error)
+		await bot.sendMessage(chatId, "❌ Konkurs ma'lumotlarini ko'rsatishda xatolik.")
 	}
 }
 
@@ -1230,24 +1310,24 @@ const confirmRandomWinners = async (chatId, contestId) => {
 
 		await bot.sendMessage(
 			chatId,
-			`✅ G'OLIBLAR TASDIQLANDI!\n\n` +
-				`🎯 Konkurs: *${contest.name}*\n` +
-				`🏆 G'oliblar: *${winners.length} ta*\n` +
-				`📊 Konkurs yopildi va yakunlandi.\n\n` +
+			`✅ <b>G'OLIBLAR TASDIQLANDI!</b>\n\n` +
+				`<b>🎯 Konkurs:</b> ${contest.name}\n` +
+				`<b>🏆 G'oliblar:</b> ${winners.length} ta\n` +
+				`<b>📊 Konkurs yopildi va yakunlandi.</b>\n\n` +
 				`Endi g'oliblarga mukofot berishingiz mumkin.`,
 			{
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: {
 					inline_keyboard: [
 						[
 							{
-								text: '💰 Mukofot berish',
+								text: '💰 MUKOFOT BERISH',
 								callback_data: `distribute_rewards_${contestId}`
 							}
 						],
 						[
 							{
-								text: '◀️ Orqaga',
+								text: '◀️ ORQAGA',
 								callback_data: `admin_contest_${contestId}`
 							}
 						]
@@ -1285,7 +1365,9 @@ const notifyRandomWinners = async (chatId, contestId) => {
 			try {
 				await bot.sendMessage(
 					winnerChatId,
-					`🎉 *TABRIKLAYMIZ!* 🎉\n\n` +
+					'━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+						'🎉 TABRIKLAYMIZ! 🎉\n' +
+						'━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
 						`Siz "${contest.name}" konkursida g'olib bo'ldingiz! 🏆\n\n` +
 						`💰 Mukofot: ${contest.points} ball\n` +
 						`📊 Konkurs yakunlandi va siz g'olib sifatida tan olingansiz.\n\n` +
@@ -1293,7 +1375,6 @@ const notifyRandomWinners = async (chatId, contestId) => {
 				)
 				notifiedCount++
 
-				// Kichik kechikish
 				await new Promise(resolve => setTimeout(resolve, 500))
 			} catch (error) {
 				console.error(`Xabar yuborish xatosi ${winnerChatId}:`, error)
@@ -1303,21 +1384,21 @@ const notifyRandomWinners = async (chatId, contestId) => {
 
 		await bot.sendMessage(
 			chatId,
-			`📤 XABAR YUBORISH YAKUNLANDI!\n\n` +
-				`✅ Muvaffaqiyatli: ${notifiedCount} ta\n` +
-				`❌ Muvaffaqiyatsiz: ${failedCount} ta\n\n` +
+			`<b>📤 XABAR YUBORISH YAKUNLANDI!</b>\n\n` +
+				`✅ <b>Muvaffaqiyatli:</b> ${notifiedCount} ta\n` +
+				`❌ <b>Muvaffaqiyatsiz:</b> ${failedCount} ta\n\n` +
 				`${
 					failedCount > 0
 						? "⚠️ Ba'zi foydalanuvchilarga xabar yuborish muvaffaqiyatsiz bo'ldi."
 						: "✅ Barcha g'oliblarga xabar yuborildi."
 				}`,
 			{
-				parse_mode: 'Markdown',
+				parse_mode: 'HTML',
 				reply_markup: {
 					inline_keyboard: [
 						[
 							{
-								text: '💰 Mukofot berish',
+								text: '💰 MUKOFOT BERISH',
 								callback_data: `distribute_rewards_${contestId}`
 							}
 						]
@@ -1347,7 +1428,7 @@ module.exports = {
 	deleteContest,
 	handleEditContest,
 	handleEditFieldSelection,
-	processEditContest, // BU MUHIM - EKSKORT QILINGAN
+	processEditContest,
 	handleSkipEditImage,
 	handleContestResults,
 	calculateAndSendResults,
