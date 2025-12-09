@@ -51,6 +51,18 @@ const userSchema = new mongoose.Schema(
 			type: Date,
 			default: Date.now
 		},
+		dailyBonus: {
+			type: Number,
+			default: 0
+		},
+		lastDailyBonus: {
+			type: Date,
+			default: null
+		},
+		totalBonusReceived: {
+			type: Number,
+			default: 0
+		},
 		isAdmin: {
 			type: Boolean,
 			default: false

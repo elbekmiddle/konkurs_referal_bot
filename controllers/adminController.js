@@ -1,20 +1,22 @@
+// controllers/adminController.js - TO'LIQ YANGILANGAN
 const User = require('../models/User')
 const Channel = require('../models/Channel')
 const Contest = require('../models/Contest')
+const Settings = require('../models/Settings') // ✅ BU YERDA IMPORT QILINGAN
 const {
 	adminKeyboard,
 	userManagementKeyboard,
 	contestManagementKeyboard,
 	channelManagementKeyboard,
 	settingsKeyboard,
-	backKeyboard,
+	backKeyboard
 } = require('../utils/keyboards')
 const contestController = require('./contestController')
 const channelController = require('./channelController')
-
 const bot = require('./bot')
 
 const userStates = {}
+const bonusEditStates = {}
 
 // ==================== ASOSIY ADMIN FUNKSIYALARI ====================
 
@@ -40,7 +42,7 @@ const showAdminPanel = async chatId => {
 
 		await bot.sendMessage(chatId, message, {
 			parse_mode: 'Markdown',
-			...adminKeyboard,
+			...adminKeyboard
 		})
 	} catch (error) {
 		console.error("Admin panel ko'rsatish xatosi:", error)
@@ -82,19 +84,11 @@ const handleAdminStatistics = async chatId => {
 }
 
 const handleUserManagement = async chatId => {
-	await bot.sendMessage(
-		chatId,
-		'👥 Foydalanuvchilar boshqaruvi',
-		userManagementKeyboard
-	)
+	await bot.sendMessage(chatId, '👥 Foydalanuvchilar boshqaruvi', userManagementKeyboard)
 }
 
 const handleContestManagement = async chatId => {
-	await bot.sendMessage(
-		chatId,
-		'🎯 Konkurslar boshqaruvi',
-		contestManagementKeyboard
-	)
+	await bot.sendMessage(chatId, '🎯 Konkurslar boshqaruvi', contestManagementKeyboard)
 }
 
 const handleChannelManagement = async chatId => {
@@ -114,9 +108,9 @@ const handleChannelManagement = async chatId => {
 				inline_keyboard: [
 					[{ text: '➕ Kanal qoʻshish', callback_data: 'add_channel' }],
 					[{ text: '📋 Kanallar roʻyxati', callback_data: 'list_channels' }],
-					[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
-				],
-			},
+					[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }]
+				]
+			}
 		})
 	} catch (error) {
 		console.error('❌ Kanal boshqaruvini koʻrsatish xatosi:', error)
@@ -134,7 +128,7 @@ const handleBroadcast = async chatId => {
 	try {
 		userStates[chatId] = {
 			action: 'broadcast',
-			step: 'waiting_message',
+			step: 'waiting_message'
 		}
 
 		const totalUsers = await User.countDocuments()
@@ -149,8 +143,8 @@ const handleBroadcast = async chatId => {
 				parse_mode: 'Markdown',
 				reply_markup: {
 					keyboard: [[{ text: '❌ Bekor qilish' }]],
-					resize_keyboard: true,
-				},
+					resize_keyboard: true
+				}
 			}
 		)
 	} catch (error) {
@@ -168,7 +162,7 @@ const processBroadcast = async (chatId, msg) => {
 		if (msg.text === '❌ Bekor qilish') {
 			delete userStates[chatId]
 			await bot.sendMessage(chatId, '❌ Reklama yuborish bekor qilindi.', {
-				reply_markup: adminKeyboard.reply_markup,
+				reply_markup: adminKeyboard.reply_markup
 			})
 			return
 		}
@@ -185,12 +179,12 @@ const processBroadcast = async (chatId, msg) => {
 						[
 							{
 								text: '✅ Xabarni yuborish',
-								callback_data: 'confirm_broadcast',
+								callback_data: 'confirm_broadcast'
 							},
-							{ text: '❌ Bekor qilish', callback_data: 'cancel_broadcast' },
-						],
-					],
-				},
+							{ text: '❌ Bekor qilish', callback_data: 'cancel_broadcast' }
+						]
+					]
+				}
 			}
 
 			let previewMessage = `📢 *Xabar ko'rinishi:*\n\n`
@@ -199,37 +193,33 @@ const processBroadcast = async (chatId, msg) => {
 				previewMessage += msg.text
 				await bot.sendMessage(chatId, previewMessage, {
 					parse_mode: 'Markdown',
-					...confirmKeyboard,
+					...confirmKeyboard
 				})
 			} else if (msg.photo) {
 				previewMessage += '🖼️ Rasmli xabar'
 				await bot.sendPhoto(chatId, msg.photo[msg.photo.length - 1].file_id, {
 					caption: previewMessage,
 					parse_mode: 'Markdown',
-					...confirmKeyboard,
+					...confirmKeyboard
 				})
 			} else if (msg.video) {
 				previewMessage += '🎥 Videoli xabar'
 				await bot.sendVideo(chatId, msg.video.file_id, {
 					caption: previewMessage,
 					parse_mode: 'Markdown',
-					...confirmKeyboard,
+					...confirmKeyboard
 				})
 			} else if (msg.document) {
 				previewMessage += '📎 Hujjatli xabar'
 				await bot.sendDocument(chatId, msg.document.file_id, {
 					caption: previewMessage,
 					parse_mode: 'Markdown',
-					...confirmKeyboard,
+					...confirmKeyboard
 				})
 			} else {
-				await bot.sendMessage(
-					chatId,
-					'❌ Qoʻllab-quvvatlanmaydigan xabar turi.',
-					{
-						reply_markup: adminKeyboard.reply_markup,
-					}
-				)
+				await bot.sendMessage(chatId, '❌ Qoʻllab-quvvatlanmaydigan xabar turi.', {
+					reply_markup: adminKeyboard.reply_markup
+				})
 				delete userStates[chatId]
 			}
 		}
@@ -276,16 +266,16 @@ const sendBroadcast = async chatId => {
 						user.chatId,
 						state.message.photo[state.message.photo.length - 1].file_id,
 						{
-							caption: state.message.caption || '',
+							caption: state.message.caption || ''
 						}
 					)
 				} else if (state.message.video) {
 					await bot.sendVideo(user.chatId, state.message.video.file_id, {
-						caption: state.message.caption || '',
+						caption: state.message.caption || ''
 					})
 				} else if (state.message.document) {
 					await bot.sendDocument(user.chatId, state.message.document.file_id, {
-						caption: state.message.caption || '',
+						caption: state.message.caption || ''
 					})
 				}
 
@@ -308,7 +298,7 @@ const sendBroadcast = async chatId => {
 							`📊 Progress: ${progress}%`,
 						{
 							chat_id: chatId,
-							message_id: progressMessage.message_id,
+							message_id: progressMessage.message_id
 						}
 					)
 				} catch (editError) {
@@ -326,13 +316,11 @@ const sendBroadcast = async chatId => {
 			`👥 Jami foydalanuvchilar: ${totalUsers} ta\n` +
 			`✅ Muvaffaqiyatli yuborildi: ${successCount} ta\n` +
 			`❌ Yuborilmadi: ${failCount} ta\n` +
-			`📊 Muvaffaqiyat darajasi: ${Math.round(
-				(successCount / totalUsers) * 100
-			)}%`
+			`📊 Muvaffaqiyat darajasi: ${Math.round((successCount / totalUsers) * 100)}%`
 
 		await bot.sendMessage(chatId, resultMessage, {
 			parse_mode: 'Markdown',
-			reply_markup: adminKeyboard.reply_markup,
+			reply_markup: adminKeyboard.reply_markup
 		})
 
 		// Holatni tozalash
@@ -340,7 +328,7 @@ const sendBroadcast = async chatId => {
 	} catch (error) {
 		console.error('❌ Reklama yuborish xatosi:', error)
 		await bot.sendMessage(chatId, '❌ Reklama yuborishda xatolik yuz berdi.', {
-			reply_markup: adminKeyboard.reply_markup,
+			reply_markup: adminKeyboard.reply_markup
 		})
 		delete userStates[chatId]
 	}
@@ -350,7 +338,7 @@ const cancelBroadcast = async chatId => {
 	try {
 		delete userStates[chatId]
 		await bot.sendMessage(chatId, '❌ Reklama yuborish bekor qilindi.', {
-			reply_markup: adminKeyboard.reply_markup,
+			reply_markup: adminKeyboard.reply_markup
 		})
 	} catch (error) {
 		console.error('❌ Reklama bekor qilish xatosi:', error)
@@ -370,8 +358,7 @@ const handleCreateContest = async chatId => {
 const handleNotImplemented = async (chatId, feature) => {
 	await bot.sendMessage(
 		chatId,
-		`🚧 ${feature} bo'limi hozircha ishlab chiqilmoqda...\n\n` +
-			"Tez orada qo'shiladi!",
+		`🚧 ${feature} bo'limi hozircha ishlab chiqilmoqda...\n\n` + "Tez orada qo'shiladi!",
 		backKeyboard
 	)
 }
@@ -415,35 +402,25 @@ const showAllUsers = async (chatId, page = 1) => {
 		// Keyboard yaratish
 		const inline_keyboard = []
 
-		// Foydalanuvchilar tugmalari
-		// users.forEach(user => {
-		// 	inline_keyboard.push([
-		// 		{
-		// 			text: `${user.fullName} (${user.points}⭐)`,
-		// 			callback_data: `view_user_${user.chatId}`,
-		// 		},
-		// 	])
-		// })
-
 		// Navigatsiya tugmalari
 		const navButtons = []
 
 		if (page > 1) {
 			navButtons.push({
 				text: '⬅️ Oldingi',
-				callback_data: `users_page_${page - 1}`,
+				callback_data: `users_page_${page - 1}`
 			})
 		}
 
 		navButtons.push({
 			text: `📄 ${page}/${totalPages}`,
-			callback_data: 'current_page',
+			callback_data: 'current_page'
 		})
 
 		if (page < totalPages) {
 			navButtons.push({
 				text: 'Keyingi ➡️',
-				callback_data: `users_page_${page + 1}`,
+				callback_data: `users_page_${page + 1}`
 			})
 		}
 
@@ -451,14 +428,11 @@ const showAllUsers = async (chatId, page = 1) => {
 			inline_keyboard.push(navButtons)
 		}
 
-
-		inline_keyboard.push([
-			{ text: '◀️ Orqaga', callback_data: 'back_to_admin' },
-		])
+		inline_keyboard.push([{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }])
 
 		// TO'G'RILANGAN: parse_mode ni o'chirdik
 		await bot.sendMessage(chatId, message, {
-			reply_markup: { inline_keyboard },
+			reply_markup: { inline_keyboard }
 		})
 	} catch (error) {
 		console.error('❌ Foydalanuvchilar roʻyxatini koʻrsatish xatosi:', error)
@@ -492,12 +466,12 @@ const showTopUsers = async chatId => {
 
 		const inline_keyboard = [
 			[{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' }],
-			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
+			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }]
 		]
 
 		// TO'G'RILANGAN: parse_mode ni o'chirdik
 		await bot.sendMessage(chatId, message, {
-			reply_markup: { inline_keyboard },
+			reply_markup: { inline_keyboard }
 		})
 	} catch (error) {
 		console.error('❌ Top foydalanuvchilarni koʻrsatish xatosi:', error)
@@ -516,7 +490,7 @@ const showRecentUsers = async chatId => {
 			.select('username fullName points referrals joinDate isSubscribed')
 
 		const totalRecent = await User.countDocuments({
-			joinDate: { $gte: weekAgo },
+			joinDate: { $gte: weekAgo }
 		})
 
 		// TO'G'RILANGAN: Markdown emas
@@ -541,14 +515,14 @@ const showRecentUsers = async chatId => {
 		const inline_keyboard = [
 			[
 				{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' },
-				{ text: '🏆 Top foydalanuvchilar', callback_data: 'top_users' },
+				{ text: '🏆 Top foydalanuvchilar', callback_data: 'top_users' }
 			],
-			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }],
+			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }]
 		]
 
 		// TO'G'RILANGAN: parse_mode ni o'chirdik
 		await bot.sendMessage(chatId, message, {
-			reply_markup: { inline_keyboard },
+			reply_markup: { inline_keyboard }
 		})
 	} catch (error) {
 		console.error('❌ Yangi foydalanuvchilarni koʻrsatish xatosi:', error)
@@ -556,10 +530,436 @@ const showRecentUsers = async chatId => {
 	}
 }
 
+// ==================== KUNLIK BONUS TIZIMI ====================
+
+const handleDailyBonusSettings = async chatId => {
+	try {
+		// MongoDB dan sozlamalarni olish
+		const settings = await Settings.getDailyBonusSettings()
+
+		const status = settings.enabled ? '🟢 Faol' : '🔴 Nofaol'
+
+		const message =
+			`💰 *Kunlik Bonus Sozlamalari*\n\n` +
+			`Bu yerda har bir foydalanuvchi uchun kunlik bonus miqdorini sozlashingiz mumkin.\n\n` +
+			`🔸 *Joriy miqdor:* ${settings.amount} ball\n` +
+			`🔸 *Status:* ${status}\n` +
+			`🔸 *Vaqt:* Har kuni soat ${settings.time}\n\n` +
+			`Quyidagi amallardan birini tanlang:`
+
+		const keyboard = {
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{ text: "🔄 Kunlik bonusni o'zgartirish", callback_data: 'change_daily_bonus' },
+						{ text: '⏰ Vaqtni sozlash', callback_data: 'set_bonus_time' }
+					],
+					[
+						{ text: '🟢 Faollashtirish', callback_data: 'enable_daily_bonus' },
+						{ text: "🔴 O'chirish", callback_data: 'disable_daily_bonus' }
+					],
+					[
+						{ text: '📊 Statistika', callback_data: 'bonus_stats' },
+						{ text: '🏠 Bosh menyu', callback_data: 'back_to_admin' }
+					]
+				]
+			}
+		}
+
+		await bot.sendMessage(chatId, message, {
+			parse_mode: 'Markdown',
+			reply_markup: keyboard.reply_markup
+		})
+	} catch (error) {
+		console.error('Kunlik bonus sozlamalari xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Kunlik bonus miqdorini o'zgartirish
+const handleChangeDailyBonus = async chatId => {
+	try {
+		// MongoDB dan joriy miqdorni olish
+		const currentAmount = await Settings.getSetting('daily_bonus_amount', 10)
+
+		bonusEditStates[chatId] = {
+			action: 'change_daily_bonus',
+			step: 'enter_amount',
+			currentAmount: currentAmount
+		}
+
+		await bot.sendMessage(
+			chatId,
+			`💰 *Yangi kunlik bonus miqdorini kiriting:*\n\n` +
+				`Joriy miqdor: *${currentAmount}* ball\n\n` +
+				`Faqat raqam kiriting (masalan: 15)\n` +
+				`*Eslatma:* Bu har bir foydalanuvchi uchun kunlik bonus ballari bo'ladi.`,
+			{
+				parse_mode: 'Markdown',
+				reply_markup: {
+					inline_keyboard: [[{ text: '❌ Bekor qilish', callback_data: 'set_daily_bonus' }]]
+				}
+			}
+		)
+	} catch (error) {
+		console.error("Bonus o'zgartirish xatosi:", error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Kunlik bonus vaqtini sozlash
+const handleSetBonusTime = async chatId => {
+	try {
+		// MongoDB dan joriy vaqtni olish
+		const currentTime = await Settings.getSetting('daily_bonus_time', '00:00')
+
+		await bot.sendMessage(
+			chatId,
+			`⏰ *Kunlik bonus vaqtini sozlash*\n\n` +
+				`Joriy vaqt: soat *${currentTime}*\n` +
+				`Hozirgi server vaqti: ${new Date().toLocaleTimeString('uz-UZ')}\n\n` +
+				`Bonus beriladigan vaqtni sozlash uchun:\n` +
+				`1. Server vaqti: UTC+5\n` +
+				`2. Kunlik bonus har kuni tanlangan vaqtda beriladi\n\n` +
+				`Yangi vaqtni tanlang:`,
+			{
+				parse_mode: 'Markdown',
+				reply_markup: {
+					inline_keyboard: [
+						[
+							{ text: '🕐 08:00', callback_data: 'set_bonus_time_0800' },
+							{ text: '🕛 12:00', callback_data: 'set_bonus_time_1200' },
+							{ text: '🕖 19:00', callback_data: 'set_bonus_time_1900' }
+						],
+						[
+							{ text: '🕛 00:00', callback_data: 'set_bonus_time_0000' },
+							{ text: '🕧 23:59', callback_data: 'set_bonus_time_2359' }
+						],
+						[
+							{ text: '⌨️ Qoʻlda kiritish', callback_data: 'custom_bonus_time' },
+							{ text: '❌ Bekor qilish', callback_data: 'set_daily_bonus' }
+						]
+					]
+				}
+			}
+		)
+	} catch (error) {
+		console.error('Bonus vaqti sozlash xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Kunlik bonus statistikasi
+const handleBonusStats = async chatId => {
+	try {
+		// MongoDB dan sozlamalarni olish
+		const settings = await Settings.getDailyBonusSettings()
+
+		// Bugun bonus olgan foydalanuvchilarni hisoblash
+		const today = new Date()
+		today.setHours(0, 0, 0, 0)
+
+		const usersWithBonusToday = await User.countDocuments({
+			lastDailyBonus: { $gte: today }
+		})
+
+		const totalUsers = await User.countDocuments()
+
+		// Oxirgi 7 kun statistikasi
+		const weekAgo = new Date()
+		weekAgo.setDate(weekAgo.getDate() - 7)
+
+		const weeklyBonusStats = await User.aggregate([
+			{
+				$match: {
+					lastDailyBonus: { $gte: weekAgo }
+				}
+			},
+			{
+				$group: {
+					_id: { $dateToString: { format: '%Y-%m-%d', date: '$lastDailyBonus' } },
+					count: { $sum: 1 }
+				}
+			},
+			{
+				$sort: { _id: -1 }
+			},
+			{
+				$limit: 7
+			}
+		])
+
+		const message =
+			`📊 *Kunlik Bonus Statistikasi*\n\n` +
+			`👥 Umumiy foydalanuvchilar: ${totalUsers} ta\n` +
+			`💰 Bugun bonus olganlar: ${usersWithBonusToday} ta\n` +
+			`🎯 Bugun bonus olmaganlar: ${totalUsers - usersWithBonusToday} ta\n\n` +
+			`*Sozlamalar:*\n` +
+			`🔸 Kunlik bonus: ${settings.amount} ball\n` +
+			`🔸 Status: ${settings.enabled ? '🟢 Faol' : '🔴 Nofaol'}\n` +
+			`🔸 Vaqt: Har kuni soat ${settings.time}\n\n` +
+			`*Oxirgi 7 kun:*\n`
+
+		let weeklyMessage = ''
+		if (weeklyBonusStats.length > 0) {
+			weeklyBonusStats.forEach(stat => {
+				weeklyMessage += `📅 ${stat._id}: ${stat.count} ta foydalanuvchi\n`
+			})
+		} else {
+			weeklyMessage += "❌ Ma'lumotlar mavjud emas\n"
+		}
+
+		await bot.sendMessage(chatId, message + weeklyMessage, {
+			parse_mode: 'Markdown',
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{ text: '🔄 Yangilash', callback_data: 'bonus_stats' },
+						{ text: '🏠 Bosh menyu', callback_data: 'back_to_admin' }
+					]
+				]
+			}
+		})
+	} catch (error) {
+		console.error('Bonus statistika xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Bonus holatini o'zgartirish
+const handleToggleBonusStatus = async (chatId, enable) => {
+	try {
+		// MongoDB ga saqlash
+		const success = await Settings.updateDailyBonusSettings({ enabled: enable })
+
+		if (!success) {
+			await bot.sendMessage(chatId, '❌ Sozlamalarni saqlashda xatolik yuz berdi.')
+			return
+		}
+
+		const status = enable ? 'faollashtirildi' : "o'chirildi"
+		const emoji = enable ? '🟢' : '🔴'
+
+		await bot.sendMessage(
+			chatId,
+			`${emoji} *Kunlik bonus ${status}!*\n\n` +
+				`Kunlik bonus tizimi ${enable ? 'faollashtirildi' : "o'chirildi"}.\n` +
+				`Foydalanuvchilar ${
+					enable ? 'endi kunlik bonus olishni boshlaydilar' : 'endi kunlik bonus olmaydilar'
+				}.`,
+			{
+				parse_mode: 'Markdown',
+				reply_markup: {
+					inline_keyboard: [[{ text: '🔙 Orqaga', callback_data: 'set_daily_bonus' }]]
+				}
+			}
+		)
+	} catch (error) {
+		console.error("Bonus holatini o'zgartirish xatosi:", error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Qo'lda vaqt kiritish
+const handleCustomBonusTime = async chatId => {
+	try {
+		bonusEditStates[chatId] = {
+			action: 'set_custom_time',
+			step: 'enter_time'
+		}
+
+		await bot.sendMessage(
+			chatId,
+			`⌨️ *Kunlik bonus vaqtini kiriting:*\n\n` +
+				`Vaqtni HH:MM formatida kiriting (24-soatlik format).\n\n` +
+				`*Masalan:*\n` +
+				`• 09:30 - ertalab soat 9:30\n` +
+				`• 14:15 - tushdan keyin soat 2:15\n` +
+				`• 20:45 - kechqurun soat 8:45\n\n` +
+				`Iltimos, vaqtni quyidagi formatda kiriting:`,
+			{
+				parse_mode: 'Markdown',
+				reply_markup: {
+					inline_keyboard: [[{ text: '❌ Bekor qilish', callback_data: 'set_bonus_time' }]]
+				}
+			}
+		)
+	} catch (error) {
+		console.error("Qo'lda vaqt kiritish xatosi:", error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Bonus sozlamalarini qayta ishlash
+const processBonusSettings = async (chatId, text) => {
+	try {
+		const state = bonusEditStates[chatId]
+
+		if (state && state.action === 'change_daily_bonus' && state.step === 'enter_amount') {
+			const amount = parseInt(text)
+
+			if (isNaN(amount) || amount < 0) {
+				await bot.sendMessage(chatId, "❌ Noto'g'ri miqdor. Faqat musbat raqam kiriting (0-1000):")
+				return
+			}
+
+			if (amount > 1000) {
+				await bot.sendMessage(chatId, '❌ Miqdor juda katta. Maksimal 1000 ball kiriting:')
+				return
+			}
+
+			// MongoDB ga saqlash
+			const success = await Settings.updateDailyBonusSettings({ amount })
+
+			if (!success) {
+				await bot.sendMessage(chatId, '❌ Sozlamalarni saqlashda xatolik yuz berdi.')
+				return
+			}
+
+			delete bonusEditStates[chatId]
+
+			await bot.sendMessage(
+				chatId,
+				`✅ *Kunlik bonus miqdori yangilandi!*\n\n` +
+					`Eski miqdor: ${state.currentAmount} ball\n` +
+					`Yangi miqdor: *${amount}* ball\n\n` +
+					`Har bir foydalanuvchi endi har kuni ${amount} ball bonus oladi.`,
+				{
+					parse_mode: 'Markdown',
+					reply_markup: {
+						inline_keyboard: [[{ text: '🔙 Orqaga', callback_data: 'set_daily_bonus' }]]
+					}
+				}
+			)
+		}
+	} catch (error) {
+		console.error('Bonus sozlamalarini qayta ishlash xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Vaqtni qayta ishlash
+const processCustomTime = async (chatId, text) => {
+	try {
+		const state = bonusEditStates[chatId]
+
+		if (state && state.action === 'set_custom_time' && state.step === 'enter_time') {
+			// Vaqtni tekshirish
+			const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/
+
+			if (!timeRegex.test(text)) {
+				await bot.sendMessage(
+					chatId,
+					"❌ Noto'g'ri vaqt formati. Iltimos, HH:MM formatida kiriting.\n\n" +
+						'*Masalan:* 09:30, 14:15, 20:45',
+					{ parse_mode: 'Markdown' }
+				)
+				return
+			}
+
+			// MongoDB ga saqlash
+			const success = await Settings.updateDailyBonusSettings({ time: text })
+
+			if (!success) {
+				await bot.sendMessage(chatId, '❌ Sozlamalarni saqlashda xatolik yuz berdi.')
+				return
+			}
+
+			delete bonusEditStates[chatId]
+
+			await bot.sendMessage(
+				chatId,
+				`✅ *Kunlik bonus vaqti yangilandi!*\n\n` +
+					`Yangi vaqt: soat *${text}*\n` +
+					`Har bir foydalanuvchi endi har kuni soat ${text} da bonus oladi.`,
+				{
+					parse_mode: 'Markdown',
+					reply_markup: {
+						inline_keyboard: [[{ text: '🔙 Orqaga', callback_data: 'set_daily_bonus' }]]
+					}
+				}
+			)
+		}
+	} catch (error) {
+		console.error('Vaqtni qayta ishlash xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Vaqt callback'larini qayta ishlash
+const handleBonusTimeCallback = async (chatId, data) => {
+	try {
+		if (data === 'custom_bonus_time') {
+			await handleCustomBonusTime(chatId)
+			return
+		}
+
+		if (data.startsWith('set_bonus_time_')) {
+			const time = data.replace('set_bonus_time_', '')
+
+			// MongoDB ga saqlash
+			const success = await Settings.updateDailyBonusSettings({ time: time })
+
+			if (!success) {
+				await bot.sendMessage(chatId, '❌ Sozlamalarni saqlashda xatolik yuz berdi.')
+				return
+			}
+
+			await bot.sendMessage(
+				chatId,
+				`✅ *Kunlik bonus vaqti yangilandi!*\n\n` +
+					`Yangi vaqt: soat *${time}*\n` +
+					`Har bir foydalanuvchi endi har kuni soat ${time} da bonus oladi.`,
+				{
+					parse_mode: 'Markdown',
+					reply_markup: {
+						inline_keyboard: [[{ text: '🔙 Orqaga', callback_data: 'set_daily_bonus' }]]
+					}
+				}
+			)
+		}
+	} catch (error) {
+		console.error('❌ Bonus vaqt callback xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
+// Bonus matnli xabarlarini qayta ishlash
+const handleBonusTextMessage = async (chatId, text) => {
+	try {
+		console.log('📝 Bonus matn xabari:', text)
+
+		const state = bonusEditStates[chatId]
+
+		// Bekor qilish
+		if (text === '❌ Bekor qilish') {
+			delete bonusEditStates[chatId]
+			await bot.sendMessage(chatId, "❌ Bonus o'zgartirish bekor qilindi.", {
+				reply_markup: { remove_keyboard: true }
+			})
+			await handleDailyBonusSettings(chatId)
+			return
+		}
+
+		// Qaysi holat ekanligini tekshirish
+		if (state) {
+			if (state.action === 'change_daily_bonus') {
+				await processBonusSettings(chatId, text)
+			} else if (state.action === 'set_custom_time') {
+				await processCustomTime(chatId, text)
+			}
+		}
+	} catch (error) {
+		console.error('❌ Bonus matn xabarini qayta ishlash xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+	}
+}
+
 // ==================== MODULE EXPORTS ====================
 
 module.exports = {
 	userStates,
+	bonusEditStates,
 	showAdminPanel,
 	handleAdminStatistics,
 	handleUserManagement,
@@ -577,4 +977,15 @@ module.exports = {
 	showAllUsers,
 	showTopUsers,
 	showRecentUsers,
+	// Kunlik bonus tizimi
+	handleDailyBonusSettings,
+	handleChangeDailyBonus,
+	handleSetBonusTime,
+	handleBonusStats,
+	handleToggleBonusStatus,
+	handleCustomBonusTime,
+	processBonusSettings,
+	processCustomTime,
+	handleBonusTimeCallback,
+	handleBonusTextMessage
 }

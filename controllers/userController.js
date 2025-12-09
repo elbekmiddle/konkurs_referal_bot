@@ -909,7 +909,6 @@ const showReferredFriendsAsTable = async (chatId, page = 1) => {
 
 		inline_keyboard.push([
 			{ text: '🔄 Yangilash', callback_data: 'refresh_friends' },
-			{ text: '📊 Umumiy statistika', callback_data: 'show_stats' }
 		])
 
 		inline_keyboard.push([{ text: '🔗 Taklif havolasi', callback_data: 'show_referral' }])

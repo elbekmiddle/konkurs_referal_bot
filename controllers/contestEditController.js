@@ -1,4 +1,3 @@
-// controllers/contestEditController.js
 const Contest = require('../models/Contest')
 const { uploadTelegramFile, getImageFileId } = require('../utils/fileUpload')
 const contestScheduler = require('./contestScheduler')
@@ -33,11 +32,9 @@ const startEditContest = async (chatId, contestId) => {
 			}
 		}
 
-		// Xavfsiz formatlash - Markdown o'rniga HTML
-		const safeName = escapeHtml(contest.name)
 		const message =
 			`✏️ <b>Konkursni tahrirlash</b>\n\n` +
-			`🎯 <b>${safeName}</b>\n\n` +
+			`🎯 <b>${escapeHtml(contest.name)}</b>\n\n` +
 			`Quyidagi maydonlardan tahrirlamoqchi bo'lganingizni tanlang:`
 
 		const keyboard = {
@@ -467,5 +464,6 @@ module.exports = {
 	processEditContest,
 	handleSkipEditImage,
 	showContestDetail,
-	sendHtmlMessage
+	sendHtmlMessage,
+	escapeHtml
 }

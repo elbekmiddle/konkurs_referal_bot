@@ -15,7 +15,7 @@ joinDate
 points
 0 shunaqa turda va nechta odam taklif qilgani ismi va necha bal olgani shunaqa narsalari va konkurs botlardagi qolgan funksiyalar 
 @Tibbiy_konkursbot shunga oxshagan buni menda tayyor kodni bor 
-
+yana referal link bersin va maxsus raqam bersin tartib bilan hech kimniki bir biriga oxshamagan va har bir odam uchun alohida  userlar 1000 ta boladimi  kanalga azo bolganini tekshiradida raqam beradi u bolsa random golibni aniqlash uchun yordam beradi
 
 
 149.154.167.220:443  telegram bot api

@@ -16,6 +16,8 @@ const userController = require('./controllers/userController')
 const adminController = require('./controllers/adminController')
 const contestController = require('./controllers/contestController')
 const channelController = require('./controllers/channelController')
+const { startDailyBonusScheduler } = require('./schedulers/dailyBonusScheduler')
+const Settings = require('./models/Settings')
 
 const app = express()
 
@@ -209,141 +211,45 @@ bot.onText(/\/clear/, async msg => {
 
 // ==================== MESSAGE HANDLER ====================
 
-// bot.on('message', async msg => {
-// 	const chatId = msg.chat.id
-// 	const text = msg.text
+bot.on('message', async msg => {
+	const chatId = msg.chat.id
+	const text = msg.text
 
-// 	// /start command ni ignore qilish
-// 	if (text && text.startsWith('/start')) return
+	// /start command ni ignore qilish
+	if (text && text.startsWith('/start')) return
 
-// 	console.log(`📝 Yangi xabar: chatId=${chatId}, text=${text}`)
+	console.log(`📝 Yangi xabar: chatId=${chatId}, text=${text}`)
 
-// 	try {
-// 		const user = await User.findOne({ chatId })
-// 		if (!user) return
+	try {
+		const user = await User.findOne({ chatId })
+		if (!user) return
 
-// 		if (user.isAdmin) {
-// 			await handleAdminMessage(chatId, text, msg)
-// 		} else {
-// 			await handleUserMessage(chatId, text, msg)
-// 		}
-// 	} catch (error) {
-// 		console.error('❌ Xabar qayta ishlash xatosi:', error)
-// 		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
-// 	}
-// })
+		if (user.isAdmin) {
+			// Contest controller orqali admin xabarlarini qayta ishlash
+			const state = contestController.userStates?.[chatId]
+			const bonusState = adminController.bonusEditStates?.[chatId]
 
-// // ==================== CALLBACK QUERY HANDLER ====================
+			if (bonusState) {
+				await adminController.handleBonusTextMessage(chatId, text)
+				return
+			}
 
-// bot.on('callback_query', async callbackQuery => {
-// 	const chatId = callbackQuery.message.chat.id
-// 	const messageId = callbackQuery.message.message_id
-// 	const data = callbackQuery.data
+			if (state && state.action === 'select_random_winners') {
+				await contestController.processRandomWinners(chatId, text)
+				return
+			}
 
-// 	console.log(`📞 Callback data: ${data}, chatId: ${chatId}`)
+			await handleAdminMessage(chatId, text, msg)
+		} else {
+			await handleUserMessage(chatId, text, msg)
+		}
+	} catch (error) {
+		console.error('❌ Xabar qayta ishlash xatosi:', error)
+		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
+})
 
-// 	try {
-// 		// Avval callback query ga javob beramiz
-// 		await bot.answerCallbackQuery(callbackQuery.id)
-
-// 		const user = await User.findOne({ chatId })
-// 		if (!user) {
-// 			await messageManager.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-// 			return
-// 		}
-
-// 		if (user.isAdmin) {
-// 			await handleAdminCallback(chatId, messageId, data, user)
-// 		} else {
-// 			await handleUserCallback(chatId, messageId, data, user)
-// 		}
-// 	} catch (error) {
-// 		console.error('❌ Callback query handler xatosi:', error)
-// 		await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Xatolik yuz berdi' })
-// 	}
-// })
-
-// index.js - Qo'shimcha qism
-// ... oldingi kodlar ...
-
-bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text;
-
-    // /start command ni ignore qilish
-    if (text && text.startsWith('/start')) return;
-
-    console.log(`📝 Yangi xabar: chatId=${chatId}, text=${text}`);
-
-    try {
-        const user = await User.findOne({ chatId });
-        if (!user) return;
-
-        if (user.isAdmin) {
-            // Contest controller orqali admin xabarlarini qayta ishlash
-            const state = contestController.userStates?.[chatId];
-            if (state && state.action === 'select_random_winners') {
-                await contestController.processRandomWinners(chatId, text);
-                return;
-            }
-            
-            await handleAdminMessage(chatId, text, msg);
-        } else {
-            await handleUserMessage(chatId, text, msg);
-        }
-    } catch (error) {
-        console.error('❌ Xabar qayta ishlash xatosi:', error);
-        await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi');
-    }
-});
-
-// bot.on('callback_query', async (callbackQuery) => {
-//     const chatId = callbackQuery.message.chat.id;
-//     const messageId = callbackQuery.message.message_id;
-//     const data = callbackQuery.data;
-
-//     console.log(`📞 Callback data: ${data}, chatId: ${chatId}`);
-
-//     try {
-//         // Avval callback query ga javob beramiz
-//         await bot.answerCallbackQuery(callbackQuery.id);
-
-//         const user = await User.findOne({ chatId });
-//         if (!user) {
-//             await messageManager.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.');
-//             return;
-//         }
-
-//         if (user.isAdmin) {
-//             // Random g'olib callback'lari
-//             if (data.startsWith('random_winners_')) {
-//                 const contestId = data.replace('random_winners_', '');
-//                 await contestController.handleRandomWinners(chatId, contestId);
-//                 return;
-//             }
-
-//             if (data.startsWith('confirm_random_winners_')) {
-//                 const contestId = data.replace('confirm_random_winners_', '');
-//                 await contestController.confirmRandomWinners(chatId, contestId);
-//                 return;
-//             }
-
-//             if (data.startsWith('notify_random_winners_')) {
-//                 const contestId = data.replace('notify_random_winners_', '');
-//                 await contestController.notifyRandomWinners(chatId, contestId);
-//                 return;
-//             }
-
-//             await handleAdminCallback(chatId, messageId, data, user);
-//         } else {
-//             await handleUserCallback(chatId, messageId, data, user);
-//         }
-//     } catch (error) {
-//         console.error('❌ Callback query handler xatosi:', error);
-//         await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Xatolik yuz berdi' });
-//     }
-// });
-
+// ==================== CALLBACK QUERY HANDLER ====================
 
 bot.on('callback_query', async callbackQuery => {
 	const chatId = callbackQuery.message.chat.id
@@ -382,7 +288,7 @@ bot.on('callback_query', async callbackQuery => {
 				return
 			}
 
-			// KONKURS TAHRIRLASH CALLBACK'LARI - YANGI QO'SHILDI
+			// KONKURS TAHRIRLASH CALLBACK'LARI
 			if (data.startsWith('edit_contest_')) {
 				const contestId = data.replace('edit_contest_', '')
 				await contestController.handleEditContest(chatId, contestId)
@@ -414,135 +320,95 @@ bot.on('callback_query', async callbackQuery => {
 // ==================== HANDLER FUNCTIONS ====================
 
 // Admin message handler
-// async function handleAdminMessage(chatId, text, msg) {
-// 	try {
-// 		switch (text) {
-// 			case '📊 Statistika':
-// 				await adminController.handleAdminStatistics(chatId)
-// 				break
-// 			case '📢 Xabar':
-// 				await adminController.handleBroadcast(chatId)
-// 				break
-// 			case '📺 Kanallar':
-// 				await adminController.handleChannelManagement(chatId)
-// 				break
-// 			case '🎯 Konkurslar':
-// 				await adminController.handleContestManagement(chatId)
-// 				break
-// 			case '👥 Foydalanuvchilar':
-// 				await adminController.handleUserManagement(chatId)
-// 				break
-// 			case '⚙️ Sozlamalar':
-// 				await adminController.handleSettings(chatId)
-// 				break
-// 			case '🔙 Asosiy menyu':
-// 				await showAdminPanel(chatId)
-// 				break
-// 			default:
-// 				// Admin holatlarini tekshirish
-// 				const broadcastState = adminController.userStates?.[chatId]
-// 				if (broadcastState && broadcastState.action === 'broadcast') {
-// 					await adminController.processBroadcast(chatId, msg)
-// 					return
-// 				}
-
-// 				const channelState = channelController.userStates?.[chatId]
-// 				if (channelState && channelState.action === 'add_channel') {
-// 					await channelController.processAddChannel(chatId, msg)
-// 					return
-// 				}
-
-// 				const contestState = contestController.userStates?.[chatId]
-// 				if (contestState && contestState.action === 'create_contest') {
-// 					await contestController.processContestCreation(chatId, msg)
-// 					return
-// 				}
-
-// 				if (text && !text.startsWith('/')) {
-// 					await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal. Iltimos, menyudan tanlang.")
-// 				}
-// 		}
-// 	} catch (error) {
-// 		console.error('❌ Admin xabarlarini qayta ishlash xatosi:', error)
-// 		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
-// 	}
-// }
-
-// index.js - Admin message handler
 async function handleAdminMessage(chatId, text, msg) {
-    try {
-        // AVVAL: Edit contest holatini tekshirish
-        const editState = contestController.editStates?.[chatId];
-        if (editState && editState.action === 'edit_contest') {
-            console.log(`✏️ Edit contest state found for chatId: ${chatId}`);
-            await contestController.processContestEdit(chatId, msg);
-            return;
-        }
+	try {
+		// AVVAL: Edit contest holatini tekshirish
+		const editState = contestController.editStates?.[chatId]
+		if (editState && editState.action === 'edit_contest') {
+			console.log(`✏️ Edit contest state found for chatId: ${chatId}`)
+			// FUNKSIYA NOMINI TO'G'RILASH
+			await contestController.processEditContest(chatId, msg)
+			return
+		}
 
-        // Random g'olib aniqlash holati
-        const randomState = contestController.userStates?.[chatId];
-        if (randomState && randomState.action === 'select_random_winners') {
-            console.log(`🎲 Random winners state found for chatId: ${chatId}`);
-            await contestController.processRandomWinners(chatId, text);
-            return;
-        }
+		// Random g'olib aniqlash holati
+		const randomState = contestController.userStates?.[chatId]
+		if (randomState && randomState.action === 'select_random_winners') {
+			console.log(`🎲 Random winners state found for chatId: ${chatId}`)
+			await contestController.processRandomWinners(chatId, text)
+			return
+		}
+		// Boshqa admin holatlarini tekshirish
+		const broadcastState = adminController.userStates?.[chatId]
+		if (broadcastState && broadcastState.action === 'broadcast') {
+			console.log('📢 Reklama jarayoni...')
+			await adminController.processBroadcast(chatId, msg)
+			return
+		}
 
-        // Boshqa admin holatlarini tekshirish
-        const broadcastState = adminController.userStates?.[chatId];
-        if (broadcastState && broadcastState.action === 'broadcast') {
-            console.log('📢 Reklama jarayoni...');
-            await adminController.processBroadcast(chatId, msg);
-            return;
-        }
+		const channelState = channelController.userStates?.[chatId]
+		if (channelState) {
+			// Kanal tahrirlash holatlari
+			if (
+				channelState.action === 'edit_channel_name' ||
+				channelState.action === 'edit_channel_username' ||
+				channelState.action === 'add_channel'
+			) {
+				console.log(`📝 Kanal tahrirlash holati: ${channelState.action}`)
+				await channelController.processEditChannel(chatId, msg)
+				return
+			}
+		}
 
-        const channelState = channelController.userStates?.[chatId];
-        if (channelState && channelState.action === 'add_channel') {
-            console.log('📺 Kanal qoʻshish jarayoni...');
-            await channelController.processAddChannel(chatId, msg);
-            return;
-        }
+		const contestState = contestController.userStates?.[chatId]
+		if (contestState && contestState.action === 'create_contest') {
+			console.log('🎯 Konkurs yaratish jarayoni...')
+			await contestController.processContestCreation(chatId, msg)
+			return
+		}
 
-        const contestState = contestController.userStates?.[chatId];
-        if (contestState && contestState.action === 'create_contest') {
-            console.log('🎯 Konkurs yaratish jarayoni...');
-            await contestController.processContestCreation(chatId, msg);
-            return;
-        }
+		// Bonus edit holati
+		const bonusState = adminController.bonusEditStates?.[chatId]
+		if (bonusState) {
+			console.log('💰 Bonus edit holati...')
+			await adminController.handleBonusTextMessage(chatId, text)
+			return
+		}
 
-        // Agar yuqoridagi holatlardan biriga tegishli bo'lmasa, menyu buyruqlarini tekshirish
-        switch (text) {
-            case '📊 Statistika':
-                await adminController.handleAdminStatistics(chatId);
-                break;
-            case '📢 Xabar':
-                await adminController.handleBroadcast(chatId);
-                break;
-            case '📺 Kanallar':
-                await adminController.handleChannelManagement(chatId);
-                break;
-            case '🎯 Konkurslar':
-                await adminController.handleContestManagement(chatId);
-                break;
-            case '👥 Foydalanuvchilar':
-                await adminController.handleUserManagement(chatId);
-                break;
-            case '⚙️ Sozlamalar':
-                await adminController.handleSettings(chatId);
-                break;
-            case '🔙 Asosiy menyu':
-                await showAdminPanel(chatId);
-                break;
-            default:
-                // Faqat matnli xabarlar uchun
-                if (text && !text.startsWith('/')) {
-                    console.log(`⚠️ Admin unknown text command: ${text}`);
-                    await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal. Iltimos, menyudan tanlang.");
-                }
-        }
-    } catch (error) {
-        console.error('❌ Admin xabarlarini qayta ishlash xatosi:', error);
-        await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi');
-    }
+		// Agar yuqoridagi holatlardan biriga tegishli bo'lmasa, menyu buyruqlarini tekshirish
+		switch (text) {
+			case '📊 Statistika':
+				await adminController.handleAdminStatistics(chatId)
+				break
+			case '📢 Xabar':
+				await adminController.handleBroadcast(chatId)
+				break
+			case '📺 Kanallar':
+				await adminController.handleChannelManagement(chatId)
+				break
+			case '🎯 Konkurslar':
+				await adminController.handleContestManagement(chatId)
+				break
+			case '👥 Foydalanuvchilar':
+				await adminController.handleUserManagement(chatId)
+				break
+			case '⚙️ Sozlamalar':
+				await adminController.handleSettings(chatId)
+				break
+			case '🔙 Asosiy menyu':
+				await showAdminPanel(chatId)
+				break
+			default:
+				// Faqat matnli xabarlar uchun
+				if (text && !text.startsWith('/')) {
+					console.log(`⚠️ Admin unknown text command: ${text}`)
+					await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal. Iltimos, menyudan tanlang.")
+				}
+		}
+	} catch (error) {
+		console.error('❌ Admin xabarlarini qayta ishlash xatosi:', error)
+		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
 }
 
 // User message handler
@@ -594,276 +460,251 @@ async function handleUserMessage(chatId, text, msg) {
 	}
 }
 
-// Admin callback handler
-// async function handleAdminCallback(chatId, messageId, data, user) {
-// 	try {
-// 		// Orqaga qaytish
-// 		if (data === 'back_to_admin') {
-// 			await showAdminPanel(chatId)
-// 			return
-// 		}
-
-// 		// Kanal callback'lari
-// 		if (data === 'list_channels') {
-// 			await channelController.showChannelsList(chatId)
-// 			return
-// 		}
-
-// 		if (data === 'add_channel') {
-// 			await channelController.startAddChannel(chatId)
-// 			return
-// 		}
-
-// 		if (data.startsWith('view_channel_')) {
-// 			const channelId = data.replace('view_channel_', '')
-// 			await channelController.showChannelDetail(chatId, channelId)
-// 			return
-// 		}
-
-// 		if (data.startsWith('toggle_channel_')) {
-// 			const channelId = data.replace('toggle_channel_', '')
-// 			await channelController.toggleChannel(chatId, channelId)
-// 			return
-// 		}
-
-// 		if (data.startsWith('delete_channel_')) {
-// 			const channelId = data.replace('delete_channel_', '')
-// 			await channelController.deleteChannel(chatId, channelId)
-// 			return
-// 		}
-
-// 		if (data.startsWith('edit_channel_')) {
-// 			const channelId = data.replace('edit_channel_', '')
-// 			await channelController.startEditChannel(chatId, channelId)
-// 			return
-// 		}
-
-// 		// Konkurs callback'lari
-// 		if (data === 'list_contests') {
-// 			await contestController.showAdminContestsList(chatId)
-// 			return
-// 		}
-
-// 		if (data === 'create_contest') {
-// 			await contestController.startContestCreation(chatId)
-// 			return
-// 		}
-
-// 		if (data.startsWith('admin_contest_')) {
-// 			const contestId = data.replace('admin_contest_', '')
-// 			await contestController.showAdminContestDetail(chatId, contestId)
-// 			return
-// 		}
-
-// 		if (data.startsWith('toggle_contest_')) {
-// 			const contestId = data.replace('toggle_contest_', '')
-// 			await contestController.toggleContest(chatId, contestId)
-// 			return
-// 		}
-
-// 		if (data.startsWith('delete_contest_')) {
-// 			const contestId = data.replace('delete_contest_', '')
-// 			await contestController.deleteContest(chatId, contestId)
-// 			return
-// 		}
-
-// 		// Foydalanuvchi boshqaruvi
-// 		if (data === 'all_users_1') {
-// 			await adminController.showAllUsers(chatId, 1)
-// 			return
-// 		}
-
-// 		if (data.startsWith('users_page_')) {
-// 			const page = parseInt(data.replace('users_page_', ''))
-// 			await adminController.showAllUsers(chatId, page)
-// 			return
-// 		}
-
-// 		console.log(`🔧 Admin noma'lum callback: ${data}`)
-// 		await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal")
-// 	} catch (error) {
-// 		console.error('❌ Admin callback handler xatosi:', error)
-// 		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
-// 	}
-// }
-
-
 // Admin callback handler - TO'LIQ YANGILANGAN VERSIYA
 async function handleAdminCallback(chatId, messageId, data, user) {
-    try {
-        console.log(`🔧 Admin callback: ${data}, chatId: ${chatId}`);
+	try {
+		console.log(`🔧 Admin callback: ${data}, chatId: ${chatId}`)
+		if (data === 'back_to_admin') {
+			await adminController.showAdminPanel(chatId)
+			return
+		}
 
-        // Asosiy admin callback'lari
-        if (data === 'back_to_admin') {
-            await adminController.showAdminPanel(chatId);
-            return;
-        }
+		// KANAL CALLBACK'LARI
+		if (data === 'list_channels') {
+			await channelController.showChannelsList(chatId)
+			return
+		}
 
-        // KANAL CALLBACK'LARI
-        if (data === 'list_channels') {
-            await channelController.showChannelsList(chatId);
-            return;
-        }
+		if (data === 'add_channel') {
+			await channelController.startAddChannel(chatId)
+			return
+		}
 
-        if (data === 'add_channel') {
-            await channelController.startAddChannel(chatId);
-            return;
-        }
+		if (data.startsWith('view_channel_')) {
+			const channelId = data.replace('view_channel_', '')
+			await channelController.showChannelDetail(chatId, channelId)
+			return
+		}
 
-        if (data.startsWith('view_channel_')) {
-            const channelId = data.replace('view_channel_', '');
-            await channelController.showChannelDetail(chatId, channelId);
-            return;
-        }
+		if (data.startsWith('toggle_channel_')) {
+			const channelId = data.replace('toggle_channel_', '')
+			await channelController.toggleChannel(chatId, channelId)
+			return
+		}
 
-        if (data.startsWith('toggle_channel_')) {
-            const channelId = data.replace('toggle_channel_', '');
-            await channelController.toggleChannel(chatId, channelId);
-            return;
-        }
+		if (data.startsWith('delete_channel_')) {
+			const channelId = data.replace('delete_channel_', '')
+			await channelController.deleteChannel(chatId, channelId)
+			return
+		}
 
-        if (data.startsWith('delete_channel_')) {
-            const channelId = data.replace('delete_channel_', '');
-            await channelController.deleteChannel(chatId, channelId);
-            return;
-        }
+		if (data.startsWith('confirm_delete_')) {
+			const channelId = data.replace('confirm_delete_', '')
+			await channelController.confirmDeleteChannel(chatId, channelId)
+			return
+		}
 
-        if (data.startsWith('edit_channel_')) {
-            const channelId = data.replace('edit_channel_', '');
-            await channelController.startEditChannel(chatId, channelId);
-            return;
-        }
+		// YANGI: Kanal tahrirlash callback'lari
+		// 1. Asosiy tahrirlash menyusi
+		if (
+			data.startsWith('edit_channel_') &&
+			!data.includes('edit_channel_name_') &&
+			!data.includes('edit_channel_username_')
+		) {
+			const channelId = data.replace('edit_channel_', '')
+			await channelController.startEditChannel(chatId, channelId)
+			return
+		}
 
-        // KONKURS CALLBACK'LARI - TAHRIRLASH QO'SHILDI
-        if (data === 'list_contests') {
-            await contestController.showAdminContestsList(chatId);
-            return;
-        }
+		// 2. Nomini tahrirlash
+		if (data.startsWith('edit_channel_name_')) {
+			const channelId = data.replace('edit_channel_name_', '')
+			await channelController.startEditChannelName(chatId, channelId)
+			return
+		}
 
-        if (data === 'create_contest') {
-            await contestController.startContestCreation(chatId);
-            return;
-        }
+		// 3. Username tahrirlash
+		if (data.startsWith('edit_channel_username_')) {
+			const channelId = data.replace('edit_channel_username_', '')
+			await channelController.startEditChannelUsername(chatId, channelId)
+			return
+		}
 
-        if (data === 'skip_image') {
-            await contestController.handleSkipImage(chatId);
-            return;
-        }
+		// 4. Obuna talabini o'zgartirish
+		if (data.startsWith('toggle_subscription_')) {
+			const channelId = data.replace('toggle_subscription_', '')
+			await channelController.toggleSubscriptionRequirement(chatId, channelId)
+			return
+		}
+		if (data.startsWith('confirm_delete_')) {
+			const channelId = data.replace('confirm_delete_', '')
+			await channelController.confirmDeleteChannel(chatId, channelId)
+			return
+		}
+		// KONKURS CALLBACK'LARI
+		if (data === 'list_contests') {
+			await contestController.showAdminContestsList(chatId)
+			return
+		}
 
-        if (data.startsWith('admin_contest_')) {
-            const contestId = data.replace('admin_contest_', '');
-            await contestController.showAdminContestDetail(chatId, contestId);
-            return;
-        }
+		if (data === 'create_contest') {
+			await contestController.startContestCreation(chatId)
+			return
+		}
 
-        if (data.startsWith('toggle_contest_')) {
-            const contestId = data.replace('toggle_contest_', '');
-            await contestController.toggleContest(chatId, contestId);
-            return;
-        }
+		if (data === 'skip_image') {
+			await contestController.handleSkipImage(chatId)
+			return
+		}
 
-        if (data.startsWith('delete_contest_')) {
-            const contestId = data.replace('delete_contest_', '');
-            await contestController.deleteContest(chatId, contestId);
-            return;
-        }
+		if (data.startsWith('admin_contest_')) {
+			const contestId = data.replace('admin_contest_', '')
+			await contestController.showAdminContestDetail(chatId, contestId)
+			return
+		}
 
-        // KONKURS TAHRIRLASH - BU MUHIM QISM
-        if (data.startsWith('edit_contest_')) {
-            const contestId = data.replace('edit_contest_', '');
-            await contestController.handleEditContest(chatId, contestId);
-            return;
-        }
+		if (data.startsWith('toggle_contest_')) {
+			const contestId = data.replace('toggle_contest_', '')
+			await contestController.toggleContest(chatId, contestId)
+			return
+		}
 
-        if (data.startsWith('edit_field_')) {
-            await contestController.handleEditFieldSelection(chatId, data);
-            return;
-        }
+		if (data.startsWith('delete_contest_')) {
+			const contestId = data.replace('delete_contest_', '')
+			await contestController.deleteContest(chatId, contestId)
+			return
+		}
 
-        if (data === 'skip_edit_image') {
-            await contestController.handleSkipEditImage(chatId);
-            return;
-        }
+		// KONKURS TAHRIRLASH
+		if (data.startsWith('edit_contest_')) {
+			const contestId = data.replace('edit_contest_', '')
+			await contestController.handleEditContest(chatId, contestId)
+			return
+		}
 
-        if (data.startsWith('contest_results_')) {
-            const contestId = data.replace('contest_results_', '');
-            await contestController.handleContestResults(chatId, contestId);
-            return;
-        }
+		if (data.startsWith('edit_field_')) {
+			await contestController.handleEditFieldSelection(chatId, data)
+			return
+		}
 
-        if (data.startsWith('calculate_results_')) {
-            const contestId = data.replace('calculate_results_', '');
-            await contestController.calculateAndSendResults(chatId, contestId);
-            return;
-        }
+		if (data === 'skip_edit_image') {
+			await contestController.handleSkipEditImage(chatId)
+			return
+		}
 
-        if (data.startsWith('distribute_rewards_')) {
-            const contestId = data.replace('distribute_rewards_', '');
-            await contestController.distributeRewards(chatId, contestId);
-            return;
-        }
+		if (data.startsWith('contest_results_')) {
+			const contestId = data.replace('contest_results_', '')
+			await contestController.handleContestResults(chatId, contestId)
+			return
+		}
 
-        if (data.startsWith('random_winners_')) {
-            const contestId = data.replace('random_winners_', '');
-            await contestController.handleRandomWinners(chatId, contestId);
-            return;
-        }
+		if (data.startsWith('calculate_results_')) {
+			const contestId = data.replace('calculate_results_', '')
+			await contestController.calculateAndSendResults(chatId, contestId)
+			return
+		}
 
-        // FOYDALANUVCHI BOSHQARUVI
-        if (data === 'search_user') {
-            await adminController.handleUserSearch(chatId);
-            return;
-        }
+		if (data.startsWith('distribute_rewards_')) {
+			const contestId = data.replace('distribute_rewards_', '')
+			await contestController.distributeRewards(chatId, contestId)
+			return
+		}
 
-        if (data === 'user_stats') {
-            await adminController.handleUserStats(chatId);
-            return;
-        }
+		if (data.startsWith('random_winners_')) {
+			const contestId = data.replace('random_winners_', '')
+			await contestController.handleRandomWinners(chatId, contestId)
+			return
+		}
 
-        if (data.startsWith('users_page_')) {
-            const page = parseInt(data.replace('users_page_', ''));
-            await adminController.showAllUsers(chatId, page);
-            return;
-        }
+		// FOYDALANUVCHI BOSHQARUVI
+		if (data === 'search_user') {
+			await adminController.handleUserSearch(chatId)
+			return
+		}
 
-        if (data === 'all_users_1') {
-            await adminController.showAllUsers(chatId, 1);
-            return;
-        }
+		if (data === 'user_stats') {
+			await adminController.handleUserStats(chatId)
+			return
+		}
 
-        if (data === 'top_users') {
-            await adminController.showTopUsers(chatId);
-            return;
-        }
+		if (data.startsWith('users_page_')) {
+			const page = parseInt(data.replace('users_page_', ''))
+			await adminController.showAllUsers(chatId, page)
+			return
+		}
 
-        if (data === 'recent_users') {
-            await adminController.showRecentUsers(chatId);
-            return;
-        }
+		if (data === 'all_users_1') {
+			await adminController.showAllUsers(chatId, 1)
+			return
+		}
 
-        // REKLAMA CALLBACK'LARI
-        if (data === 'confirm_broadcast') {
-            await adminController.sendBroadcast(chatId);
-            return;
-        }
+		if (data === 'top_users') {
+			await adminController.showTopUsers(chatId)
+			return
+		}
 
-        if (data === 'cancel_broadcast') {
-            await adminController.cancelBroadcast(chatId);
-            return;
-        }
+		if (data === 'recent_users') {
+			await adminController.showRecentUsers(chatId)
+			return
+		}
 
-        // SOZLAMALAR
-        if (data === 'set_daily_bonus') {
-            await adminController.handleDailyBonusSettings(chatId);
-            return;
-        }
+		// REKLAMA CALLBACK'LARI
+		if (data === 'confirm_broadcast') {
+			await adminController.sendBroadcast(chatId)
+			return
+		}
 
-        console.log(`🔧 Admin noma'lum callback: ${data}`);
-        await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal");
-    } catch (error) {
-        console.error('❌ Admin callback handler xatosi:', error);
-        await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi');
-    }
+		if (data === 'cancel_broadcast') {
+			await adminController.cancelBroadcast(chatId)
+			return
+		}
+
+		if (data === 'set_daily_bonus') {
+			await adminController.handleDailyBonusSettings(chatId)
+			return
+		}
+
+		if (data === 'change_daily_bonus') {
+			await adminController.handleChangeDailyBonus(chatId)
+			return
+		}
+
+		if (data === 'set_bonus_time') {
+			await adminController.handleSetBonusTime(chatId)
+			return
+		}
+
+		if (data === 'bonus_stats') {
+			await adminController.handleBonusStats(chatId)
+			return
+		}
+
+		if (data === 'enable_daily_bonus') {
+			await adminController.handleToggleBonusStatus(chatId, true)
+			return
+		}
+
+		if (data === 'disable_daily_bonus') {
+			await adminController.handleToggleBonusStatus(chatId, false)
+			return
+		}
+
+		if (data === 'custom_bonus_time') {
+			await adminController.handleCustomBonusTime(chatId)
+			return
+		}
+
+		if (data.startsWith('set_bonus_time_')) {
+			await adminController.handleBonusTimeCallback(chatId, data)
+			return
+		}
+
+		console.log(`🔧 Admin noma'lum callback: ${data}`)
+		await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal")
+	} catch (error) {
+		console.error('❌ Admin callback handler xatosi:', error)
+		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
 }
 
 // User callback handler
@@ -944,6 +785,29 @@ async function handleUserCallback(chatId, messageId, data, user) {
 		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
+
+// ==================== INITIALIZE APP ====================
+
+// index.js yoki app.js da
+
+// Bot ishga tushganda
+async function initializeApp() {
+	try {
+		// MongoDB ga ulanish
+		await connectDB()
+
+		// Dastlabki sozlamalarni yaratish
+		await Settings.initializeDefaults()
+
+		// ... boshqa initializatsiyalar ...
+
+		console.log('🚀 Bot muvaffaqiyatli ishga tushdi')
+	} catch (error) {
+		console.error('❌ Dasturni ishga tushirishda xatolik:', error)
+	}
+}
+
+initializeApp()
 
 // ==================== ERROR HANDLING ====================
 
