@@ -59,6 +59,17 @@ const adminKeyboard = {
 	}
 }
 
+// ==================== MESSAGE CLEANUP FUNCTION ====================
+
+async function cleanupOldMessages(chatId) {
+	try {
+		// User uchun xabarlarni tozalash
+		await messageManager.clearMessages(chatId)
+	} catch (error) {
+		console.error('❌ Xabarlarni tozalashda xatolik:', error)
+	}
+}
+
 // ==================== COMMAND HANDLERS ====================
 
 // Start command
@@ -69,6 +80,9 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 	console.log(`🚀 Start command: chatId=${chatId}, param=${startParam}`)
 
 	try {
+		// Eski xabarlarni tozalash
+		await cleanupOldMessages(chatId)
+
 		let user = await User.findOne({ chatId })
 
 		if (!user) {
@@ -129,6 +143,9 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 // Admin panel ko'rsatish
 async function showAdminPanel(chatId) {
 	try {
+		// Eski xabarlarni tozalash
+		await cleanupOldMessages(chatId)
+
 		const user = await User.findOne({ chatId })
 		if (!user || !user.isAdmin) {
 			await messageManager.sendMessage(chatId, '❌ Siz admin emassiz.')
@@ -157,6 +174,10 @@ async function showAdminPanel(chatId) {
 // Channels command
 bot.onText(/\/channels/, async msg => {
 	const chatId = msg.chat.id
+
+	// Eski xabarlarni tozalash
+	await cleanupOldMessages(chatId)
+
 	const channels = await Channel.find()
 
 	console.log('📊 Kanallar:', channels)
@@ -178,6 +199,10 @@ bot.onText(/\/channels/, async msg => {
 // My status command
 bot.onText(/\/mystatus/, async msg => {
 	const chatId = msg.chat.id
+
+	// Eski xabarlarni tozalash
+	await cleanupOldMessages(chatId)
+
 	const user = await User.findOne({ chatId })
 
 	if (user) {
@@ -191,6 +216,10 @@ bot.onText(/\/mystatus/, async msg => {
 // Menu command
 bot.onText(/\/menu/, async msg => {
 	const chatId = msg.chat.id
+
+	// Eski xabarlarni tozalash
+	await cleanupOldMessages(chatId)
+
 	const user = await User.findOne({ chatId })
 
 	if (user) {
@@ -223,6 +252,14 @@ bot.on('message', async msg => {
 	try {
 		const user = await User.findOne({ chatId })
 		if (!user) return
+
+		// Eski xabarlarni tozalash (faqat menyu o'zgarishida)
+		if (
+			text &&
+			text.match(/📊|📢|📺|🎯|👥|⚙️|🔙|Mening|Do'stlarni|Konkurslar|Reyting|Kunlik|Yordam|Orqaga/)
+		) {
+			await cleanupOldMessages(chatId)
+		}
 
 		if (user.isAdmin) {
 			// Contest controller orqali admin xabarlarini qayta ishlash
@@ -268,6 +305,11 @@ bot.on('callback_query', async callbackQuery => {
 			return
 		}
 
+		// Eski xabarlarni tozalash (faqat asosiy menyuga o'tishda)
+		if (data === 'main_menu' || data === 'back_to_admin') {
+			await cleanupOldMessages(chatId)
+		}
+
 		if (user.isAdmin) {
 			// Random g'olib callback'lari
 			if (data.startsWith('random_winners_')) {
@@ -298,6 +340,23 @@ bot.on('callback_query', async callbackQuery => {
 			// Edit field callback'lari
 			if (data.startsWith('edit_field_')) {
 				await contestController.handleEditFieldSelection(chatId, data)
+				return
+			}
+			if (data.startsWith('notify_winners_')) {
+				// Oldin: notify_winners_6933b9edfd2e56ac575dc466
+				// Yangi: notify_winners_contestid_6933b9edfd2e56ac575dc466
+
+				// Biroz murakkab format bo'lishi mumkin, shuning uchon qayta ishlash
+				const parts = data.split('_')
+				if (parts.length >= 3) {
+					const contestId = parts.slice(2).join('_') // "contestid_6933b9edfd2e56ac575dc466"
+					// Agar contestId "contestid_" bilan boshlansa, uni olib tashlash
+					const cleanContestId = contestId.replace('contestid_', '')
+					await contestController.notifyWinners(chatId, cleanContestId)
+				} else {
+					console.log(`⚠️ Noto'g'ri notify_winners format: ${data}`)
+					await messageManager.sendMessage(chatId, "❌ Noto'g'ri format.")
+				}
 				return
 			}
 
@@ -348,13 +407,21 @@ async function handleAdminMessage(chatId, text, msg) {
 
 		const channelState = channelController.userStates?.[chatId]
 		if (channelState) {
-			// Kanal tahrirlash holatlari
+			console.log(`📝 Kanal tahrirlash holati: ${channelState.action}, step: ${channelState.step}`)
+
+			// Agar add_channel holatida bo'lsa
+			if (channelState.action === 'add_channel') {
+				console.log('➕ Kanal qoʻshish jarayoni...')
+				await channelController.processAddChannel(chatId, msg)
+				return
+			}
+
+			// Agar edit_channel_name yoki edit_channel_username bo'lsa
 			if (
 				channelState.action === 'edit_channel_name' ||
-				channelState.action === 'edit_channel_username' ||
-				channelState.action === 'add_channel'
+				channelState.action === 'edit_channel_username'
 			) {
-				console.log(`📝 Kanal tahrirlash holati: ${channelState.action}`)
+				console.log(`✏️ Kanal tahrirlash: ${channelState.action}`)
 				await channelController.processEditChannel(chatId, msg)
 				return
 			}
@@ -461,6 +528,255 @@ async function handleUserMessage(chatId, text, msg) {
 }
 
 // Admin callback handler - TO'LIQ YANGILANGAN VERSIYA
+// async function handleAdminCallback(chatId, messageId, data, user) {
+// 	try {
+// 		console.log(`🔧 Admin callback: ${data}, chatId: ${chatId}`)
+// 		if (data === 'back_to_admin') {
+// 			await adminController.showAdminPanel(chatId)
+// 			return
+// 		}
+
+// 		// KANAL CALLBACK'LARI
+// 		if (data === 'list_channels') {
+// 			await channelController.showChannelsList(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'add_channel') {
+// 			await channelController.startAddChannel(chatId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('view_channel_')) {
+// 			const channelId = data.replace('view_channel_', '')
+// 			await channelController.showChannelDetail(chatId, channelId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('toggle_channel_')) {
+// 			const channelId = data.replace('toggle_channel_', '')
+// 			await channelController.toggleChannel(chatId, channelId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('delete_channel_')) {
+// 			const channelId = data.replace('delete_channel_', '')
+// 			await channelController.deleteChannel(chatId, channelId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('confirm_delete_')) {
+// 			const channelId = data.replace('confirm_delete_', '')
+// 			await channelController.confirmDeleteChannel(chatId, channelId)
+// 			return
+// 		}
+
+// 		// YANGI: Kanal tahrirlash callback'lari
+// 		// 1. Asosiy tahrirlash menyusi
+// 		if (
+// 			data.startsWith('edit_channel_') &&
+// 			!data.includes('edit_channel_name_') &&
+// 			!data.includes('edit_channel_username_')
+// 		) {
+// 			const channelId = data.replace('edit_channel_', '')
+// 			await channelController.startEditChannel(chatId, channelId)
+// 			return
+// 		}
+
+// 		// 2. Nomini tahrirlash
+// 		if (data.startsWith('edit_channel_name_')) {
+// 			const channelId = data.replace('edit_channel_name_', '')
+// 			await channelController.startEditChannelName(chatId, channelId)
+// 			return
+// 		}
+
+// 		// 3. Username tahrirlash
+// 		if (data.startsWith('edit_channel_username_')) {
+// 			const channelId = data.replace('edit_channel_username_', '')
+// 			await channelController.startEditChannelUsername(chatId, channelId)
+// 			return
+// 		}
+
+// 		// 4. Obuna talabini o'zgartirish
+// 		if (data.startsWith('toggle_subscription_')) {
+// 			const channelId = data.replace('toggle_subscription_', '')
+// 			await channelController.toggleSubscriptionRequirement(chatId, channelId)
+// 			return
+// 		}
+
+// 		// KONKURS CALLBACK'LARI
+// 		if (data === 'list_contests') {
+// 			await contestController.showAdminContestsList(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'create_contest') {
+// 			await contestController.startContestCreation(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'skip_image') {
+// 			await contestController.handleSkipImage(chatId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('admin_contest_')) {
+// 			const contestId = data.replace('admin_contest_', '')
+// 			await contestController.showAdminContestDetail(chatId, contestId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('toggle_contest_')) {
+// 			const contestId = data.replace('toggle_contest_', '')
+// 			await contestController.toggleContest(chatId, contestId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('delete_contest_')) {
+// 			const contestId = data.replace('delete_contest_', '')
+// 			await contestController.deleteContest(chatId, contestId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('confirm_delete_contest_')) {
+// 			const contestId = data.replace('confirm_delete_contest_', '')
+// 			await contestController.confirmDeleteContest(chatId, contestId)
+// 			return
+// 		}
+// 		// KONKURS TAHRIRLASH
+// 		if (data.startsWith('edit_contest_')) {
+// 			const contestId = data.replace('edit_contest_', '')
+// 			await contestController.handleEditContest(chatId, contestId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('edit_field_')) {
+// 			await contestController.handleEditFieldSelection(chatId, data)
+// 			return
+// 		}
+
+// 		if (data === 'skip_edit_image') {
+// 			await contestController.handleSkipEditImage(chatId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('contest_results_')) {
+// 			const contestId = data.replace('contest_results_', '')
+// 			await contestController.handleContestResults(chatId, contestId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('calculate_results_')) {
+// 			const contestId = data.replace('calculate_results_', '')
+// 			await contestController.calculateAndSendResults(chatId, contestId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('distribute_rewards_')) {
+// 			const contestId = data.replace('distribute_rewards_', '')
+// 			await contestController.distributeRewards(chatId, contestId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('random_winners_')) {
+// 			const contestId = data.replace('random_winners_', '')
+// 			await contestController.handleRandomWinners(chatId, contestId)
+// 			return
+// 		}
+
+// 		// FOYDALANUVCHI BOSHQARUVI
+// 		if (data === 'search_user') {
+// 			await adminController.handleUserSearch(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'user_stats') {
+// 			await adminController.handleUserStats(chatId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('users_page_')) {
+// 			const page = parseInt(data.replace('users_page_', ''))
+// 			await adminController.showAllUsers(chatId, page)
+// 			return
+// 		}
+
+// 		if (data === 'all_users_1') {
+// 			await adminController.showAllUsers(chatId, 1)
+// 			return
+// 		}
+
+// 		if (data === 'top_users') {
+// 			await adminController.showTopUsers(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'recent_users') {
+// 			await adminController.showRecentUsers(chatId)
+// 			return
+// 		}
+
+// 		// REKLAMA CALLBACK'LARI
+// 		if (data === 'confirm_broadcast') {
+// 			await adminController.sendBroadcast(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'cancel_broadcast') {
+// 			await adminController.cancelBroadcast(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'set_daily_bonus') {
+// 			await adminController.handleDailyBonusSettings(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'change_daily_bonus') {
+// 			await adminController.handleChangeDailyBonus(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'set_bonus_time') {
+// 			await adminController.handleSetBonusTime(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'bonus_stats') {
+// 			await adminController.handleBonusStats(chatId)
+// 			return
+// 		}
+
+// 		if (data === 'enable_daily_bonus') {
+// 			await adminController.handleToggleBonusStatus(chatId, true)
+// 			return
+// 		}
+
+// 		if (data === 'disable_daily_bonus') {
+// 			await adminController.handleToggleBonusStatus(chatId, false)
+// 			return
+// 		}
+
+// 		if (data === 'custom_bonus_time') {
+// 			await adminController.handleCustomBonusTime(chatId)
+// 			return
+// 		}
+
+// 		if (data.startsWith('set_bonus_time_')) {
+// 			await adminController.handleBonusTimeCallback(chatId, data)
+// 			return
+// 		}
+
+// 		console.log(`🔧 Admin noma'lum callback: ${data}`)
+// 		await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal")
+// 	} catch (error) {
+// 		console.error('❌ Admin callback handler xatosi:', error)
+// 		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
+// 	}
+// }
+
+// index.js da handleAdminCallback funksiyasini yangilang
+
 async function handleAdminCallback(chatId, messageId, data, user) {
 	try {
 		console.log(`🔧 Admin callback: ${data}, chatId: ${chatId}`)
@@ -498,8 +814,9 @@ async function handleAdminCallback(chatId, messageId, data, user) {
 			return
 		}
 
-		if (data.startsWith('confirm_delete_')) {
-			const channelId = data.replace('confirm_delete_', '')
+		// KANAL O'CHIRISH TASDIQLASH - Faqat channel uchun
+		if (data.startsWith('confirm_delete_channel_')) {
+			const channelId = data.replace('confirm_delete_channel_', '')
 			await channelController.confirmDeleteChannel(chatId, channelId)
 			return
 		}
@@ -536,11 +853,7 @@ async function handleAdminCallback(chatId, messageId, data, user) {
 			await channelController.toggleSubscriptionRequirement(chatId, channelId)
 			return
 		}
-		if (data.startsWith('confirm_delete_')) {
-			const channelId = data.replace('confirm_delete_', '')
-			await channelController.confirmDeleteChannel(chatId, channelId)
-			return
-		}
+
 		// KONKURS CALLBACK'LARI
 		if (data === 'list_contests') {
 			await contestController.showAdminContestsList(chatId)
@@ -575,6 +888,13 @@ async function handleAdminCallback(chatId, messageId, data, user) {
 			return
 		}
 
+		// KONKURS O'CHIRISH TASDIQLASH - Faqat contest uchun
+		if (data.startsWith('confirm_delete_contest_')) {
+			const contestId = data.replace('confirm_delete_contest_', '')
+			await contestController.confirmDeleteContest(chatId, contestId)
+			return
+		}
+		
 		// KONKURS TAHRIRLASH
 		if (data.startsWith('edit_contest_')) {
 			const contestId = data.replace('edit_contest_', '')
@@ -787,8 +1107,6 @@ async function handleUserCallback(chatId, messageId, data, user) {
 }
 
 // ==================== INITIALIZE APP ====================
-
-// index.js yoki app.js da
 
 // Bot ishga tushganda
 async function initializeApp() {

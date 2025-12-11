@@ -1,3 +1,4 @@
+// controllers/contestController.js
 const Contest = require('../models/Contest')
 const User = require('../models/User')
 const { backKeyboard } = require('../utils/keyboards')
@@ -5,6 +6,7 @@ const { uploadTelegramFile, getImageFileId } = require('../utils/fileUpload')
 const bot = require('./bot')
 const editController = require('./contestEditController')
 const contestScheduler = require('./contestScheduler')
+const messageManager = require('../utils/messageManager') // Bu qatorni qo'shing
 
 const userStates = {}
 
@@ -45,6 +47,8 @@ const isMenuCommand = text => {
 	]
 	return menuItems.includes(text.trim())
 }
+
+// ==================== KONKURS YARATISH ====================
 
 const startContestCreation = async chatId => {
 	try {
@@ -255,7 +259,7 @@ const processContestCreation = async (chatId, msg) => {
 							inline_keyboard: [
 								[
 									{
-										text: '🚫 Ralmsiz davom etish',
+										text: '🚫 Rasmsiz davom etish',
 										callback_data: 'skip_image'
 									}
 								]
@@ -277,12 +281,12 @@ const processContestCreation = async (chatId, msg) => {
 					} else {
 						await bot.sendMessage(
 							chatId,
-							'❌ Rasm yuklash muvaffaqiyatsiz. Konkurs ralmsiz yaratiladi.'
+							'❌ Rasm yuklash muvaffaqiyatsiz. Konkurs rasmsiz yaratiladi.'
 						)
 						state.data.image = null
 					}
 				} else {
-					await bot.sendMessage(chatId, 'ℹ️ Konkurs ralmsiz yaratiladi.')
+					await bot.sendMessage(chatId, 'ℹ️ Konkurs rasmsiz yaratiladi.')
 					state.data.image = null
 				}
 
@@ -1210,6 +1214,8 @@ const toggleContest = async (chatId, contestId) => {
 	}
 }
 
+// ==================== KONKURS O'CHIRISH ====================
+
 const deleteContest = async (chatId, contestId) => {
 	try {
 		const contest = await Contest.findById(contestId)
@@ -1219,14 +1225,63 @@ const deleteContest = async (chatId, contestId) => {
 			return
 		}
 
+		// O'chirishni tasdiqlash uchun xabar
+		const message =
+			`🗑️ <b>KONKURS O'CHIRISH</b>\n\n` +
+			`🎯 <b>${contest.name}</b>\n\n` +
+			`Haqiqatan ham bu konkursni o'chirmoqchimisiz?\n\n` +
+			`⚠️ Bu amalni bekor qilib bo'lmaydi!\n` +
+			`📊 Konkurs ma'lumotlari:\n` +
+			`• Qatnashuvchilar: ${contest.participants?.length || 0} ta\n` +
+			`• Mukofot: ${contest.points} ball\n` +
+			`• Holati: ${contest.isActive ? '🟢 Faol' : '🔴 Nofaol'}`
+
+		const inline_keyboard = [
+			[
+				{ text: "✅ HA, O'CHIRISH", callback_data: `confirm_delete_contest_${contestId}` },
+				{ text: '❌ BEKOR QILISH', callback_data: `admin_contest_${contestId}` }
+			]
+		]
+
+		await bot.sendMessage(chatId, message, {
+			parse_mode: 'HTML',
+			reply_markup: { inline_keyboard: inline_keyboard }
+		})
+	} catch (error) {
+		console.error("Konkurs o'chirish boshlash xatosi:", error)
+		await bot.sendMessage(chatId, "❌ Konkursni o'chirishda xatolik.")
+	}
+}
+
+const confirmDeleteContest = async (chatId, contestId) => {
+	try {
+		const contest = await Contest.findById(contestId)
+
+		if (!contest) {
+			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+			return
+		}
+
+		// Konkurs nomini saqlab qo'yish
+		const contestName = contest.name
+
+		// Konkursni o'chirish
 		await Contest.findByIdAndDelete(contestId)
 
 		// Schedulerdan ham o'chirish
 		contestScheduler.removeContest(contestId)
 
-		await bot.sendMessage(chatId, `🗑️ Konkurs o'chirildi!\n\n` + `<b>🎯 ${contest.name}</b>`, {
-			parse_mode: 'HTML'
-		})
+		await bot.sendMessage(
+			chatId,
+			`✅ <b>KONKURS O'CHIRILDI!</b>\n\n` +
+				`🎯 <b>${contestName}</b>\n` +
+				`📊 Konkurs va barcha ma'lumotlari o'chirildi.\n` +
+				`⏰ Schedulerdan ham olib tashlandi.`,
+			{ parse_mode: 'HTML' }
+		)
+
+		// Konkurslar ro'yxatiga o'tish
+		await showAdminContestsList(chatId)
 	} catch (error) {
 		console.error("Konkurs o'chirish xatosi:", error)
 		await bot.sendMessage(chatId, "❌ Konkursni o'chirishda xatolik.")
@@ -1360,7 +1415,6 @@ const notifyRandomWinners = async (chatId, contestId) => {
 		let notifiedCount = 0
 		let failedCount = 0
 
-		// Har bir g'olibga xabar yuborish
 		for (const winnerChatId of winners) {
 			try {
 				await bot.sendMessage(
@@ -1412,7 +1466,66 @@ const notifyRandomWinners = async (chatId, contestId) => {
 	}
 }
 
-// ==================== MODULE EXPORTS ====================
+// ==================== G'OLIBLARGA XABAR YUBORISH ====================
+
+const notifyWinners = async (chatId, contestId) => {
+	try {
+		const contest = await Contest.findById(contestId)
+
+		if (!contest) {
+			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+			return
+		}
+
+		const winners = contest.winners || []
+
+		if (winners.length === 0) {
+			await bot.sendMessage(chatId, "❌ Konkursda hali g'oliblar aniqlanmagan.")
+			return
+		}
+
+		let successCount = 0
+		let failCount = 0
+
+		// Har bir g'olibga xabar yuborish
+		for (const winnerChatId of winners) {
+			try {
+				const user = await User.findOne({ chatId: winnerChatId })
+				if (user) {
+					await bot.sendMessage(
+						winnerChatId,
+						`🎉 *TABRIKLAYMIZ!* 🎉\n\n` +
+							`Siz "${contest.name}" konkursida g'olib bo'ldingiz! 🏆\n\n` +
+							`💰 *Mukofot:* ${contest.points} ball\n` +
+							`📊 Konkurs yakunlandi va siz g'olib sifatida tan olingansiz.\n\n` +
+							`🎁 Tez orada mukofotingiz hisobingizga qo'shiladi!`,
+						{ parse_mode: 'Markdown' }
+					)
+					successCount++
+				}
+			} catch (error) {
+				console.error(`❌ Xabar yuborish xatosi (${winnerChatId}):`, error)
+				failCount++
+			}
+		}
+
+		// Admin ga hisobot
+		await bot.sendMessage(
+			chatId,
+			`📤 *G'OLIBLARGA XABAR YUBORISH YAKUNLANDI*\n\n` +
+				`✅ Muvaffaqiyatli: ${successCount} ta\n` +
+				`❌ Muvaffaqiyatsiz: ${failCount} ta\n\n` +
+				`🎯 Konkurs: ${contest.name}\n` +
+				`🏆 G'oliblar: ${winners.length} ta`,
+			{ parse_mode: 'Markdown' }
+		)
+	} catch (error) {
+		console.error("❌ G'oliblarga xabar yuborish xatosi:", error)
+		await bot.sendMessage(chatId, '❌ Xabarlarni yuborishda xatolik yuz berdi.')
+	}
+}
+
+// ==================== MODULE.EXPORTS ====================
 
 module.exports = {
 	userStates,
@@ -1426,6 +1539,7 @@ module.exports = {
 	handleContestParticipation,
 	toggleContest,
 	deleteContest,
+	confirmDeleteContest,
 	handleEditContest,
 	handleEditFieldSelection,
 	processEditContest,
@@ -1438,5 +1552,6 @@ module.exports = {
 	confirmRandomWinners,
 	notifyRandomWinners,
 	showContestDetail,
+	notifyWinners,
 	editStates: editController.editStates
 }

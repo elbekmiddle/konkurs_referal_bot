@@ -14,7 +14,6 @@ const startEditContest = async (chatId, contestId) => {
 			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
 			return
 		}
-
 		editStates[chatId] = {
 			action: 'edit_contest',
 			step: 'select_field',
@@ -102,7 +101,7 @@ const handleEditFieldSelection = async (chatId, data) => {
 			points: 'Yangi mukofot ball miqdorini kiriting (faqat raqam):',
 			bonus: 'Yangi bonus ball miqdorini kiriting (faqat raqam):',
 			winners: "Yangi g'oliblar sonini kiriting (faqat raqam):",
-			image: 'Yangi rasm yuboring yoki "🚫 Ralmsiz davom etish" tugmasini bosing:',
+			image: 'Yangi rasm yuboring yoki "🚫 Rasmsiz davom etish" tugmasini bosing:',
 			start_date: 'Yangi boshlanish sanasini YYYY-MM-DD formatida kiriting:',
 			end_date: 'Yangi tugash sanasini YYYY-MM-DD formatida kiriting:'
 		}
@@ -132,7 +131,7 @@ const handleEditFieldSelection = async (chatId, data) => {
 				reply_markup: {
 					inline_keyboard: [
 						[
-							{ text: '🚫 Ralmsiz davom etish', callback_data: 'skip_edit_image' },
+							{ text: '🚫 Rasmsiz davom etish', callback_data: 'skip_edit_image' },
 							{ text: '❌ Bekor qilish', callback_data: `admin_contest_${state.contestId}` }
 						]
 					]
