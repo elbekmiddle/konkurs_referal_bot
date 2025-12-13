@@ -142,4 +142,50 @@ class MessageManager {
 	}
 }
 
+// utils/messageManager.js faylida
+
+const sendInlineMessage = async (chatId, message, keyboard) => {
+	try {
+		return await bot.sendMessage(chatId, message, {
+			parse_mode: 'HTML',
+			reply_markup: keyboard
+		});
+	} catch (error) {
+		console.error('❌ Inline xabar yuborish xatosi:', error);
+		throw error;
+	}
+};
+
+// Yoki sendMessage funksiyasini yangilash
+const sendMessage = async (chatId, message, options = {}) => {
+	try {
+		const defaultOptions = {
+			parse_mode: 'HTML',
+			...options
+		};
+		
+		return await bot.sendMessage(chatId, message, defaultOptions);
+	} catch (error) {
+		console.error('❌ Xabar yuborish xatosi:', error);
+		
+		// Agar inline keyboard xatosi bo'lsa, uni olib tashlash
+		if (options.reply_markup && options.reply_markup.inline_keyboard) {
+			try {
+				return await bot.sendMessage(chatId, message, {
+					parse_mode: 'HTML'
+				});
+			} catch (secondError) {
+				console.error('❌ Ikkinchi urinish ham muvaffaqiyatsiz:', secondError);
+			}
+		}
+		return null;
+	}
+};
+
+// module.exports = {
+// 	sendMessage,
+// 	sendInlineMessage, // Agar kerak bo'lsa
+// 	clearMessages,
+// 	// ... boshqa funksiyalar
+// };
 module.exports = new MessageManager()

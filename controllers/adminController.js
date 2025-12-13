@@ -1,4 +1,3 @@
-// controllers/adminController.js - TO'LIQ YANGILANGAN
 const User = require('../models/User')
 const Channel = require('../models/Channel')
 const Contest = require('../models/Contest')
@@ -365,9 +364,84 @@ const handleNotImplemented = async (chatId, feature) => {
 
 // ==================== FOYDALANUVCHILAR RO'YXATI ====================
 
+// const showAllUsers = async (chatId, page = 1) => {
+// 	try {
+// 		const pageSize = 10
+// 		const skip = (page - 1) * pageSize
+
+// 		const users = await User.find({})
+// 			.sort({ joinDate: -1 })
+// 			.skip(skip)
+// 			.limit(pageSize)
+// 			.select('username fullName points referrals joinDate isSubscribed chatId')
+
+// 		const totalUsers = await User.countDocuments()
+// 		const totalPages = Math.ceil(totalUsers / pageSize)
+
+// 		// TO'G'RILANGAN: Markdown emas, oddiy matn
+// 		let message = `👥 Barcha foydalanuvchilar\n\n`
+// 		message += `📄 Sahifa: ${page}/${totalPages}\n\n`
+
+// 		if (users.length === 0) {
+// 			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
+// 		} else {
+// 			users.forEach((user, index) => {
+// 				const userNumber = skip + index + 1
+// 				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
+// 				const status = user.isSubscribed ? '✅' : '❌'
+// 				const username = user.username ? `@${user.username}` : "Noma'lum"
+
+// 				message += `${userNumber}. ${user.fullName}\n`
+// 				message += `   👤 ${username}\n`
+// 				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
+// 				message += `   📅 ${joinDate} | ${status}\n\n`
+// 			})
+// 		}
+
+// 		// Keyboard yaratish
+// 		const inline_keyboard = []
+
+// 		// Navigatsiya tugmalari
+// 		const navButtons = []
+
+// 		if (page > 1) {
+// 			navButtons.push({
+// 				text: '⬅️ Oldingi',
+// 				callback_data: `users_page_${page - 1}`
+// 			})
+// 		}
+
+// 		navButtons.push({
+// 			text: `📄 ${page}/${totalPages}`,
+// 			callback_data: 'current_page'
+// 		})
+
+// 		if (page < totalPages) {
+// 			navButtons.push({
+// 				text: 'Keyingi ➡️',
+// 				callback_data: `users_page_${page + 1}`
+// 			})
+// 		}
+
+// 		if (navButtons.length > 0) {
+// 			inline_keyboard.push(navButtons)
+// 		}
+
+// 		inline_keyboard.push([{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }])
+
+// 		// TO'G'RILANGAN: parse_mode ni o'chirdik
+// 		await bot.sendMessage(chatId, message, {
+// 			reply_markup: { inline_keyboard }
+// 		})
+// 	} catch (error) {
+// 		console.error('❌ Foydalanuvchilar roʻyxatini koʻrsatish xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+// 	}
+// }
+
 const showAllUsers = async (chatId, page = 1) => {
 	try {
-		const pageSize = 10
+		const pageSize = 50 // ✅ 50 ta foydalanuvchi
 		const skip = (page - 1) * pageSize
 
 		const users = await User.find({})
@@ -379,15 +453,17 @@ const showAllUsers = async (chatId, page = 1) => {
 		const totalUsers = await User.countDocuments()
 		const totalPages = Math.ceil(totalUsers / pageSize)
 
-		// TO'G'RILANGAN: Markdown emas, oddiy matn
+		// TO'G'RILANGAN: current_page callback uchun yechim
 		let message = `👥 Barcha foydalanuvchilar\n\n`
+		message += `📊 Jami: ${totalUsers} ta\n`
 		message += `📄 Sahifa: ${page}/${totalPages}\n\n`
 
 		if (users.length === 0) {
 			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
 		} else {
+			const startNum = skip + 1
 			users.forEach((user, index) => {
-				const userNumber = skip + index + 1
+				const userNumber = startNum + index
 				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
 				const status = user.isSubscribed ? '✅' : '❌'
 				const username = user.username ? `@${user.username}` : "Noma'lum"
@@ -399,38 +475,51 @@ const showAllUsers = async (chatId, page = 1) => {
 			})
 		}
 
-		// Keyboard yaratish
+		// Pagination keyboard yaratish
 		const inline_keyboard = []
 
-		// Navigatsiya tugmalari
-		const navButtons = []
+		// Faqat 1 dan ortiq sahifalar bo'lsa pagination qo'shamiz
+		if (totalPages > 1) {
+			const paginationButtons = []
 
-		if (page > 1) {
-			navButtons.push({
-				text: '⬅️ Oldingi',
-				callback_data: `users_page_${page - 1}`
+			// Oldingi sahifa tugmasi (faqat 1-dan keyingi sahifalarda)
+			if (page > 1) {
+				paginationButtons.push({
+					text: '◀️',
+					callback_data: `users_page_${page - 1}`
+				})
+			}
+
+			// Joriy sahifa tugmasi (current_page emas, balki ma'lumot beruvchi tugma)
+			paginationButtons.push({
+				text: `${page}/${totalPages}`,
+				callback_data: `current_page_${page}` // ✅ Unique identifier
 			})
+
+			// Keyingi sahifa tugmasi (faqat oxirgi sahifa bo'lmaganda)
+			if (page < totalPages) {
+				paginationButtons.push({
+					text: '▶️',
+					callback_data: `users_page_${page + 1}`
+				})
+			}
+
+			inline_keyboard.push(paginationButtons)
 		}
 
-		navButtons.push({
-			text: `📄 ${page}/${totalPages}`,
-			callback_data: 'current_page'
-		})
+		// Boshqa funksiyalar tugmalari
+		inline_keyboard.push([
+			{ text: '🔄 Yangilash', callback_data: `users_page_${page}` },
+			{ text: '🏆 Top 20', callback_data: 'top_users' }
+		])
 
-		if (page < totalPages) {
-			navButtons.push({
-				text: 'Keyingi ➡️',
-				callback_data: `users_page_${page + 1}`
-			})
-		}
+		inline_keyboard.push([
+			{ text: '🆕 Soʻnggi 7 kun', callback_data: 'recent_users' },
+			{ text: '🔍 Qidirish', callback_data: 'search_user' }
+		])
 
-		if (navButtons.length > 0) {
-			inline_keyboard.push(navButtons)
-		}
+		inline_keyboard.push([{ text: '◀️ Admin menyu', callback_data: 'back_to_admin' }])
 
-		inline_keyboard.push([{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }])
-
-		// TO'G'RILANGAN: parse_mode ni o'chirdik
 		await bot.sendMessage(chatId, message, {
 			reply_markup: { inline_keyboard }
 		})

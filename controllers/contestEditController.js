@@ -5,6 +5,7 @@ const bot = require('./bot')
 
 const editStates = {}
 
+// ==================== KONKURS TAHRIRLASH ====================
 
 const startEditContest = async (chatId, contestId) => {
 	try {
@@ -14,6 +15,8 @@ const startEditContest = async (chatId, contestId) => {
 			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
 			return
 		}
+
+		// Edit holatini tozalash
 		editStates[chatId] = {
 			action: 'edit_contest',
 			step: 'select_field',
@@ -82,7 +85,9 @@ const handleEditFieldSelection = async (chatId, data) => {
 			return
 		}
 
+		// YANGI: Holatni tozalash
 		state.step = `edit_${field}`
+		state.waitingForImage = false // Reset image waiting flag
 
 		const fieldLabels = {
 			name: '🏷️ Konkurs nomi',
@@ -108,13 +113,12 @@ const handleEditFieldSelection = async (chatId, data) => {
 
 		const currentValue = state.contestData[field === 'winners' ? 'winnersCount' : field]
 
-		// Xavfsiz formatlash
 		let safeCurrentValue
 		if (currentValue) {
 			if (typeof currentValue === 'string') {
 				safeCurrentValue = escapeHtml(currentValue)
 			} else if (currentValue instanceof Date) {
-				safeCurrentValue = currentValue.toLocaleDateString()
+				safeCurrentValue = currentDate.toLocaleDateString()
 			} else {
 				safeCurrentValue = String(currentValue)
 			}
@@ -123,7 +127,11 @@ const handleEditFieldSelection = async (chatId, data) => {
 		}
 
 		let message = `<b>${fieldLabels[field]}</b>\n\n`
+		message += `📌 Joriy qiymat: <i>${safeCurrentValue}</i>\n\n`
+		message += `${fieldInstructions[field]}`
+
 		if (field === 'image') {
+			state.waitingForImage = true // ✅ Rasim kutayotganini belgilash
 			message += '\n\nRasm yuborish uchun:\n• 📸 Photo sifatida yoki\n• 📎 Document sifatida'
 
 			await bot.sendMessage(chatId, message, {
@@ -153,6 +161,8 @@ const handleEditFieldSelection = async (chatId, data) => {
 	}
 }
 
+// ==================== XABARNI QAYTA ISHLASH (YANGILANGAN) ====================
+
 const processEditContest = async (chatId, msg) => {
 	try {
 		const state = editStates[chatId]
@@ -160,6 +170,10 @@ const processEditContest = async (chatId, msg) => {
 
 		const text = msg.text
 		const hasImage = getImageFileId(msg)
+
+		console.log(
+			`📝 Edit step: ${state.step}, Text: "${text}", HasImage: ${hasImage}, WaitingForImage: ${state.waitingForImage}`
+		)
 
 		// Bekor qilish
 		if (text === '❌ Bekor qilish') {
@@ -172,6 +186,53 @@ const processEditContest = async (chatId, msg) => {
 			return
 		}
 
+		// Rasim edit holati va rasim kutilayotgan bo'lsa
+		if (state.step === 'edit_image' && state.waitingForImage) {
+			console.log(`🖼️ Image edit state - waiting for image or skip`)
+			// Agar rasm yuborilgan bo'lsa
+			if (hasImage) {
+				await bot.sendMessage(chatId, '⏳ Rasm yuklanmoqda...', { parse_mode: 'HTML' })
+
+				const uploadResult = await uploadTelegramFile(hasImage, state.contestData.name)
+
+				if (uploadResult.success) {
+					state.contestData.image = uploadResult.url
+					await bot.sendMessage(chatId, '✅ Rasm muvaffaqiyatli yuklandi!', {
+						parse_mode: 'HTML'
+					})
+					state.waitingForImage = false
+					await saveEdit(chatId, 'image')
+				} else {
+					await bot.sendMessage(chatId, '❌ Rasm yuklash muvaffaqiyatsiz.', {
+						parse_mode: 'HTML'
+					})
+					state.waitingForImage = false
+					// Holatni qayta tiklash
+					await startEditContest(chatId, state.contestId)
+				}
+			} else if (text) {
+				// Agar matn yuborilgan bo'lsa, bu rasm emas
+				console.log(`⚠️ Text received instead of image in image edit: "${text}"`)
+				await bot.sendMessage(
+					chatId,
+					'❌ Rasm yuborilmadi. Iltimos, rasm yuboring yoki "🚫 Rasmsiz davom etish" tugmasini bosing.',
+					{
+						parse_mode: 'HTML',
+						reply_markup: {
+							inline_keyboard: [
+								[
+									{ text: '🚫 Rasmsiz davom etish', callback_data: 'skip_edit_image' },
+									{ text: '❌ Bekor qilish', callback_data: `admin_contest_${state.contestId}` }
+								]
+							]
+						}
+					}
+				)
+			}
+			return
+		}
+
+		// Boshqa maydonlar uchun
 		switch (state.step) {
 			case 'edit_name':
 				if (!text || text.trim() === '') {
@@ -242,32 +303,6 @@ const processEditContest = async (chatId, msg) => {
 				state.contestData.endDate = endDate
 				await saveEdit(chatId, 'endDate')
 				break
-
-			case 'edit_image':
-				if (hasImage) {
-					await bot.sendMessage(chatId, '⏳ Rasm yuklanmoqda...', { parse_mode: 'HTML' })
-
-					const uploadResult = await uploadTelegramFile(hasImage, state.contestData.name)
-
-					if (uploadResult.success) {
-						state.contestData.image = uploadResult.url
-						await bot.sendMessage(chatId, '✅ Rasm muvaffaqiyatli yuklandi!', {
-							parse_mode: 'HTML'
-						})
-						await saveEdit(chatId, 'image')
-					} else {
-						await bot.sendMessage(chatId, '❌ Rasm yuklash muvaffaqiyatsiz.', {
-							parse_mode: 'HTML'
-						})
-						state.contestData.image = null
-						await saveEdit(chatId, 'image')
-					}
-				} else {
-					await bot.sendMessage(chatId, '❌ Rasm yuborilmadi. Iltimos, rasm yuboring.', {
-						parse_mode: 'HTML'
-					})
-				}
-				break
 		}
 	} catch (error) {
 		console.error('Tahrirlash jarayoni xatosi:', error)
@@ -282,6 +317,7 @@ const handleSkipEditImage = async chatId => {
 		if (!state) return
 
 		state.contestData.image = null
+		state.waitingForImage = false // ✅ Rasim kutish holatini tozalash
 		await saveEdit(chatId, 'image')
 	} catch (error) {
 		console.error("Rasm o'tkazib yuborish xatosi:", error)
@@ -351,7 +387,7 @@ const saveEdit = async (chatId, field) => {
 	}
 }
 
-// ==================== YORDAMCHI FUNKSIYALAR ====================
+// ==================== QOLGAN FUNKSIYALAR ====================
 
 const showContestDetail = async (chatId, contestId) => {
 	try {
@@ -441,15 +477,7 @@ function escapeHtml(text) {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#039;')
-		.replace(/[*_`]/g, '\\$&') // Markdown belgilarini escape qilish
-}
-
-// Botning barcha xabarlarini HTML formatida yuborish uchun wrapper
-const sendHtmlMessage = async (chatId, text, options = {}) => {
-	return await bot.sendMessage(chatId, text, {
-		parse_mode: 'HTML',
-		...options
-	})
+		.replace(/[*_`]/g, '\\$&')
 }
 
 module.exports = {
@@ -459,6 +487,5 @@ module.exports = {
 	processEditContest,
 	handleSkipEditImage,
 	showContestDetail,
-	sendHtmlMessage,
 	escapeHtml
 }

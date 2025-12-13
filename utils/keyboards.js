@@ -2,15 +2,12 @@
 const mainMenuKeyboard = {
 	reply_markup: {
 		keyboard: [
-			[
-				{ text: '📊 Mening statistikam' },
-				{ text: "👥 Do'stlarni taklif qilish" },
-			],
+			[{ text: '📊 Mening statistikam' }, { text: "👥 Do'stlarni taklif qilish" }],
 			[{ text: '🎯 Konkurslar' }, { text: '🏆 Reyting' }],
-			[{ text: '⭐️ Kunlik bonus' }, { text: 'ℹ️ Yordam' }],
+			[{ textt: '📬 Adminga xabar' }],[({ text: '⭐️ Kunlik bonus' }, { text: 'ℹ️ Yordam' })]
 		],
-		resize_keyboard: true,
-	},
+		resize_keyboard: true
+	}
 }
 
 // Admin keyboard
@@ -20,7 +17,7 @@ const adminKeyboard = {
 			[{ text: '👥 Foydalanuvchilar' }],
 			[{ text: '📊 Statistika' }, { text: '📢 Xabar' }],
 			[{ text: '📺 Kanallar' }, { text: '🎯 Konkurslar' }],
-			[{ text: '🔙 Asosiy menyu' }],
+			[{ text: '📬 Xabarlar' },{ text: '🔙 Asosiy menyu' }],
 		],
 		resize_keyboard: true,
 	},
