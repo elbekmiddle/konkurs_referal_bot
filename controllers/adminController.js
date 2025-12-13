@@ -1,7 +1,7 @@
 const User = require('../models/User')
 const Channel = require('../models/Channel')
 const Contest = require('../models/Contest')
-const Settings = require('../models/Settings') // ✅ BU YERDA IMPORT QILINGAN
+const Settings = require('../models/Settings')
 const {
 	adminKeyboard,
 	userManagementKeyboard,

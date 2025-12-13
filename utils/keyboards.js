@@ -4,7 +4,7 @@ const mainMenuKeyboard = {
 		keyboard: [
 			[{ text: '📊 Mening statistikam' }, { text: "👥 Do'stlarni taklif qilish" }],
 			[{ text: '🎯 Konkurslar' }, { text: '🏆 Reyting' }],
-			[{ textt: '📬 Adminga xabar' }],[({ text: '⭐️ Kunlik bonus' }, { text: 'ℹ️ Yordam' })]
+			[({ text: '⭐️ Kunlik bonus' }, { text: 'ℹ️ Yordam' })]
 		],
 		resize_keyboard: true
 	}
@@ -17,7 +17,7 @@ const adminKeyboard = {
 			[{ text: '👥 Foydalanuvchilar' }],
 			[{ text: '📊 Statistika' }, { text: '📢 Xabar' }],
 			[{ text: '📺 Kanallar' }, { text: '🎯 Konkurslar' }],
-			[{ text: '📬 Xabarlar' },{ text: '🔙 Asosiy menyu' }],
+			[{ text: '🔙 Asosiy menyu' }],
 		],
 		resize_keyboard: true,
 	},

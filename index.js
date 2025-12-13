@@ -30,7 +30,6 @@ app.get('/ping', (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
 	console.log('🌐 Keep alive server ishga tushdi')
 
-	// Kontest scheduler ni ishga tushirish
 	setTimeout(async () => {
 		try {
 			await contestScheduler.initialize()
@@ -712,6 +711,81 @@ async function handleAdminMessage(chatId, text, msg) {
 
 // ==================== USER MESSAGE HANDLER ====================
 
+// async function handleUserMessage(chatId, text, msg) {
+// 	try {
+// 		console.log(`👤 User message handler: ${text}, chatId: ${chatId}`)
+		
+// 		// Orqaga tugmasi uchun alohida handler
+// 		if (text === '🔙 Orqaga') {
+// 			console.log(`🔄 User orqaga bosildi: ${chatId}`)
+// 			await cleanupOldMessages(chatId)
+// 			await userController.showMainMenu(chatId)
+// 			return
+// 		}
+		
+// 		// Boshqa menu tugmalari
+// 		switch (text) {
+// 			case '📊 Mening statistikam':
+// 				await userController.showUserStats(chatId)
+// 				break
+// 			case "👥 Do'stlarni taklif qilish":
+// 				await userController.showReferralInfo(chatId)
+// 				break
+// 			case '🎯 Konkurslar':
+// 				await contestController.showUserContestsList(chatId)
+// 				break
+// 			case '🏆 Reyting':
+// 				await userController.showLeaderboardAsTable(chatId)
+// 				break
+// 			case '⭐️ Kunlik bonus':
+// 				await userController.handleDailyBonus(chatId)
+// 				break
+// 				case 'ℹ️ Yordam':
+// 					await userController.showHelp(chatId)
+// 					break
+// 			case "✅ Obuna bo'ldim":
+// 				const subscription = await channelController.checkUserSubscription(chatId)
+// 				if (subscription.subscribed) {
+// 					const user = await User.findOne({ chatId })
+// 					if (user) {
+// 						user.isSubscribed = true
+// 						await user.save()
+// 					}
+// 					await userController.showMainMenu(chatId)
+// 				} else {
+// 					await messageManager.sendMessage(chatId, "❌ Hali barcha kanallarga obuna bo'lmagansiz.")
+// 				}
+// 				break;
+				
+// 			default:
+// 				// Agar matnli xabar bo'lsa va command bo'lmasa
+// 				if (text && !text.startsWith('/')) {
+// 					console.log(`ℹ️ User unknown text: ${text}`)
+// 					// Xabar qayta ishlanmagan holatda asosiy menyuga qaytish
+// 					await userController.showMainMenu(chatId)
+// 				}
+// 				 const reportState = messageReportController.reportStates?.[chatId];
+//                 if (reportState && reportState.action === 'send_report') {
+//                     await messageReportController.processReportMessage(chatId, msg);
+//                     return;
+//                 }
+// 								const replyState = messageReportController.replyStates?.[chatId];
+//                 if (replyState && replyState.action === 'reply_to_report') {
+//                     await messageReportController.processReplyMessage(chatId, msg);
+//                     return;
+//                 }
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ User xabarlarini qayta ishlash xatosi:', error)
+// 		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi. Asosiy menyuga qaytish...')
+// 		await userController.showMainMenu(chatId)
+
+// 	}
+// }
+
+
+// ==================== USER MESSAGE HANDLER ====================
+
 async function handleUserMessage(chatId, text, msg) {
 	try {
 		console.log(`👤 User message handler: ${text}, chatId: ${chatId}`)
@@ -736,17 +810,15 @@ async function handleUserMessage(chatId, text, msg) {
 				await contestController.showUserContestsList(chatId)
 				break
 			case '🏆 Reyting':
+				// showLeaderboardAsTable o'rniga showLeaderboard yoki showLeaderboardAsTable ishlating
 				await userController.showLeaderboardAsTable(chatId)
 				break
 			case '⭐️ Kunlik bonus':
 				await userController.handleDailyBonus(chatId)
 				break
-				case 'ℹ️ Yordam':
-					await userController.showHelp(chatId)
-					break
-					case '📬 Adminga xabar':
-						await messageReportController.showMessageReportMenu(chatId)
-						break
+			case 'ℹ️ Yordam':
+				await userController.showHelp(chatId)
+				break
 			case "✅ Obuna bo'ldim":
 				const subscription = await channelController.checkUserSubscription(chatId)
 				if (subscription.subscribed) {
@@ -773,7 +845,7 @@ async function handleUserMessage(chatId, text, msg) {
                     await messageReportController.processReportMessage(chatId, msg);
                     return;
                 }
-								const replyState = messageReportController.replyStates?.[chatId];
+				const replyState = messageReportController.replyStates?.[chatId];
                 if (replyState && replyState.action === 'reply_to_report') {
                     await messageReportController.processReplyMessage(chatId, msg);
                     return;
@@ -784,6 +856,87 @@ async function handleUserMessage(chatId, text, msg) {
 		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi. Asosiy menyuga qaytish...')
 		await userController.showMainMenu(chatId)
 
+	}
+}
+
+// ==================== USER CALLBACK HANDLER ====================
+
+async function handleUserCallback(chatId, messageId, data, user) {
+	try {
+		// Obuna callback'lari
+		if (data === 'confirm_subscription') {
+			await userController.handleConfirmSubscription(chatId)
+			return
+		}
+
+		if (data === 'check_subscription') {
+			await userController.handleCheckSubscription(chatId)
+			return
+		}
+
+		// Asosiy menyu callback'lari
+		if (data === 'main_menu') {
+			await userController.showMainMenu(chatId)
+			return
+		}
+
+		if (data === 'show_referral') {
+			await userController.showReferralInfo(chatId)
+			return
+		}
+
+		if (data === 'show_stats' || data === 'my_stats') {
+			await userController.showUserStats(chatId)
+			return
+		}
+
+		if (data === 'leaderboard') {
+			// Bu yerda ham bir xil funksiyani chaqiring
+			await userController.showLeaderboardAsTable(chatId)
+			return
+		}
+
+		// Do'stlar ro'yxati
+		if (data === 'show_referred_friends') {
+			await userController.showReferredFriendsAsTable(chatId, 1)
+			return
+		}
+
+		if (data.startsWith('friends_page_')) {
+			const page = parseInt(data.replace('friends_page_', ''))
+			await userController.showReferredFriendsAsTable(chatId, page)
+			return
+		}
+
+		// Kunlik bonus
+		if (data === 'daily_bonus') {
+			await userController.handleDailyBonus(chatId)
+			return
+		}
+
+		// Konkurs callback'lari
+		if (data === 'list_contests_user') {
+			await contestController.showUserContestsList(chatId)
+			return
+		}
+
+		if (data.startsWith('user_contest_')) {
+			const userContestId = data.replace('user_contest_', '')
+			await contestController.showUserContestDetail(chatId, userContestId)
+			return
+		}
+
+		if (data.startsWith('contest_join_')) {
+			const joinContestId = data.replace('contest_join_', '')
+			await contestController.handleContestParticipation(chatId, joinContestId)
+			return
+		}
+
+		console.log(`👤 User noma'lum callback: ${data}`)
+		await messageManager.sendMessage(chatId, "⚠️ Noma'lum amal")
+	} catch (error) {
+		console.error('❌ User callback handler xatosi:', error)
+		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
 // Admin callback handler - TO'LIQ YANGILANGAN VERSIYA

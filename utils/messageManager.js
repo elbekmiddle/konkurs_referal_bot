@@ -1,4 +1,3 @@
-// utils/messageManager.js
 const bot = require('../controllers/bot')
 
 class MessageManager {
@@ -13,7 +12,10 @@ class MessageManager {
 			await this.clearMessages(chatId)
 
 			// Yangi xabar yuborish
-			const sentMessage = await bot.sendMessage(chatId, text, options)
+			const sentMessage = await bot.sendMessage(chatId, text, {
+				parse_mode: 'HTML',
+				...options
+			})
 
 			// Xabarni saqlash
 			this.addMessage(chatId, sentMessage.message_id)
@@ -21,7 +23,27 @@ class MessageManager {
 			return sentMessage
 		} catch (error) {
 			console.error('❌ Xabar yuborishda xatolik:', error)
-			throw error
+			
+			// Agar inline keyboard xatosi bo'lsa, uni olib tashlab qayta urinib ko'rish
+			if (options.reply_markup && options.reply_markup.inline_keyboard) {
+				try {
+					delete options.reply_markup
+					return await bot.sendMessage(chatId, text, {
+						parse_mode: 'HTML',
+						...options
+					})
+				} catch (secondError) {
+					console.error('❌ Ikkinchi urinish ham muvaffaqiyatsiz:', secondError)
+				}
+			}
+			
+			// So'nggi urinish - faqat oddiy text
+			try {
+				return await bot.sendMessage(chatId, text)
+			} catch (finalError) {
+				console.error('❌ Uchinchi urinish ham muvaffaqiyatsiz:', finalError)
+				throw error
+			}
 		}
 	}
 
@@ -49,7 +71,7 @@ class MessageManager {
 					try {
 						await bot.deleteMessage(chatId, messageId)
 					} catch (deleteError) {
-						// Xabar allaqachon o'chirilgan bo'lishi mumkin
+						// Xabar allaqachon o'chirilgan bo'lishi mumkin (400 xatosi)
 						if (deleteError.response && deleteError.response.error_code !== 400) {
 							console.warn("⚠️ Xabarni o'chirishda xatolik:", deleteError.message)
 						}
@@ -113,6 +135,7 @@ class MessageManager {
 			return await bot.editMessageText(text, {
 				chat_id: chatId,
 				message_id: messageId,
+				parse_mode: 'HTML',
 				...options
 			})
 		} catch (error) {
@@ -129,7 +152,10 @@ class MessageManager {
 
 			for (const messageData of messagesArray) {
 				const { text, options = {} } = messageData
-				const sentMessage = await bot.sendMessage(chatId, text, options)
+				const sentMessage = await bot.sendMessage(chatId, text, {
+					parse_mode: 'HTML',
+					...options
+				})
 				this.addMessage(chatId, sentMessage.message_id)
 				sentMessages.push(sentMessage)
 			}
@@ -140,52 +166,105 @@ class MessageManager {
 			throw error
 		}
 	}
-}
 
-// utils/messageManager.js faylida
+	// Inline xabar yuborish
+	async sendInlineMessage(chatId, text, inlineKeyboard = null) {
+		try {
+			const messageOptions = {
+				parse_mode: 'HTML',
+				disable_web_page_preview: true
+			}
 
-const sendInlineMessage = async (chatId, message, keyboard) => {
-	try {
-		return await bot.sendMessage(chatId, message, {
-			parse_mode: 'HTML',
-			reply_markup: keyboard
-		});
-	} catch (error) {
-		console.error('❌ Inline xabar yuborish xatosi:', error);
-		throw error;
-	}
-};
+			if (inlineKeyboard) {
+				messageOptions.reply_markup = {
+					inline_keyboard: inlineKeyboard
+				}
+			}
 
-// Yoki sendMessage funksiyasini yangilash
-const sendMessage = async (chatId, message, options = {}) => {
-	try {
-		const defaultOptions = {
-			parse_mode: 'HTML',
-			...options
-		};
-		
-		return await bot.sendMessage(chatId, message, defaultOptions);
-	} catch (error) {
-		console.error('❌ Xabar yuborish xatosi:', error);
-		
-		// Agar inline keyboard xatosi bo'lsa, uni olib tashlash
-		if (options.reply_markup && options.reply_markup.inline_keyboard) {
+			const sentMessage = await bot.sendMessage(chatId, text, messageOptions)
+			
+			// Xabarni saqlash
+			this.addMessage(chatId, sentMessage.message_id)
+			
+			return sentMessage
+		} catch (error) {
+			console.error('❌ Inline xabar yuborishda xatolik:', error)
+			
+			// Agar inline keyboard xatosi bo'lsa, odatiy xabar yuborish
 			try {
-				return await bot.sendMessage(chatId, message, {
-					parse_mode: 'HTML'
-				});
+				return await this.sendMessage(chatId, text)
 			} catch (secondError) {
-				console.error('❌ Ikkinchi urinish ham muvaffaqiyatsiz:', secondError);
+				console.error('❌ Oddiy xabar ham yuborilmadi:', secondError)
+				throw error
 			}
 		}
-		return null;
 	}
-};
 
-// module.exports = {
-// 	sendMessage,
-// 	sendInlineMessage, // Agar kerak bo'lsa
-// 	clearMessages,
-// 	// ... boshqa funksiyalar
-// };
-module.exports = new MessageManager()
+	// Oddiy reply xabar yuborish
+	async sendReplyMessage(chatId, text, options = {}) {
+		try {
+			const messageOptions = {
+				parse_mode: 'HTML',
+				disable_web_page_preview: true,
+				...options
+			}
+
+			const sentMessage = await bot.sendMessage(chatId, text, messageOptions)
+			this.addMessage(chatId, sentMessage.message_id)
+			return sentMessage
+		} catch (error) {
+			console.error('❌ Reply xabar yuborishda xatolik:', error)
+			throw error
+		}
+	}
+
+	// Chatdagi barcha xabarlarni o'chirish (maxsus)
+	async clearAllMessages(chatId) {
+		try {
+			// Avval o'zimiz saqlagan xabarlarni o'chirish
+			await this.clearMessages(chatId)
+			
+			// Qo'shimcha: oxirgi 20 ta xabarni o'chirish
+			for (let i = 1; i <= 20; i++) {
+				try {
+					await bot.deleteMessage(chatId, i)
+				} catch (error) {
+					// Xabar mavjud emas yoki boshqa xato
+					break
+				}
+			}
+		} catch (error) {
+			console.error('❌ Barcha xabarlarni tozalashda xatolik:', error)
+		}
+	}
+
+	// Faqat inline keyboard yordamida xabar yuborish
+	async sendInlineKeyboardMessage(chatId, text, buttons, options = {}) {
+		try {
+			const inlineKeyboard = Array.isArray(buttons[0]) ? buttons : [buttons]
+			
+			const messageOptions = {
+				parse_mode: 'HTML',
+				reply_markup: {
+					inline_keyboard: inlineKeyboard
+				},
+				...options
+			}
+
+			const sentMessage = await bot.sendMessage(chatId, text, messageOptions)
+			this.addMessage(chatId, sentMessage.message_id)
+			return sentMessage
+		} catch (error) {
+			console.error('❌ Inline keyboard xabar yuborishda xatolik:', error)
+			
+			// Fallback: faqat text yuborish
+			return await this.sendMessage(chatId, text, { parse_mode: 'HTML' })
+		}
+	}
+}
+
+// Yagona instance yaratish
+const messageManager = new MessageManager()
+
+// Export qilish
+module.exports = messageManager
