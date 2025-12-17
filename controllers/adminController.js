@@ -439,9 +439,98 @@ const handleNotImplemented = async (chatId, feature) => {
 // 	}
 // }
 
+// const showAllUsers = async (chatId, page = 1) => {
+// 	try {
+// 		const pageSize = 50 // ✅ 50 ta foydalanuvchi
+// 		const skip = (page - 1) * pageSize
+
+// 		const users = await User.find({})
+// 			.sort({ joinDate: -1 })
+// 			.skip(skip)
+// 			.limit(pageSize)
+// 			.select('username fullName points referrals joinDate isSubscribed chatId')
+
+// 		const totalUsers = await User.countDocuments()
+// 		const totalPages = Math.ceil(totalUsers / pageSize)
+
+// 		// TO'G'RILANGAN: current_page callback uchun yechim
+// 		let message = `👥 Barcha foydalanuvchilar\n\n`
+// 		message += `📊 Jami: ${totalUsers} ta\n`
+// 		message += `📄 Sahifa: ${page}/${totalPages}\n\n`
+
+// 		if (users.length === 0) {
+// 			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
+// 		} else {
+// 			const startNum = skip + 1
+// 			users.forEach((user, index) => {
+// 				const userNumber = startNum + index
+// 				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
+// 				const status = user.isSubscribed ? '✅' : '❌'
+// 				const username = user.username ? `@${user.username}` : "Noma'lum"
+
+// 				message += `${userNumber}. ${user.fullName}\n`
+// 				message += `   👤 ${username}\n`
+// 				message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`
+// 				message += `   📅 ${joinDate} | ${status}\n\n`
+// 			})
+// 		}
+
+// 		// Pagination keyboard yaratish
+// 		const inline_keyboard = []
+
+// 		// Faqat 1 dan ortiq sahifalar bo'lsa pagination qo'shamiz
+// 		if (totalPages > 1) {
+// 			const paginationButtons = []
+
+// 			// Oldingi sahifa tugmasi (faqat 1-dan keyingi sahifalarda)
+// 			if (page > 1) {
+// 				paginationButtons.push({
+// 					text: '◀️',
+// 					callback_data: `users_page_${page - 1}`
+// 				})
+// 			}
+
+// 			// Joriy sahifa tugmasi (current_page emas, balki ma'lumot beruvchi tugma)
+// 			paginationButtons.push({
+// 				text: `${page}/${totalPages}`,
+// 				callback_data: `current_page_${page}` // ✅ Unique identifier
+// 			})
+
+// 			// Keyingi sahifa tugmasi (faqat oxirgi sahifa bo'lmaganda)
+// 			if (page < totalPages) {
+// 				paginationButtons.push({
+// 					text: '▶️',
+// 					callback_data: `users_page_${page + 1}`
+// 				})
+// 			}
+
+// 			inline_keyboard.push(paginationButtons)
+// 		}
+
+// 		// Boshqa funksiyalar tugmalari
+// 		inline_keyboard.push([
+// 			{ text: '🔄 Yangilash', callback_data: `users_page_${page}` },
+// 			{ text: '🏆 Top 20', callback_data: 'top_users' }
+// 		])
+
+// 		inline_keyboard.push([
+// 			{ text: '🆕 Soʻnggi 7 kun', callback_data: 'recent_users' },
+// 			{ text: '🔍 Qidirish', callback_data: 'search_user' }
+// 		])
+
+// 		inline_keyboard.push([{ text: '◀️ Admin menyu', callback_data: 'back_to_admin' }])
+
+// 		await bot.sendMessage(chatId, message, {
+// 			reply_markup: { inline_keyboard }
+// 		})
+// 	} catch (error) {
+// 		console.error('❌ Foydalanuvchilar roʻyxatini koʻrsatish xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+// 	}
+// }
 const showAllUsers = async (chatId, page = 1) => {
 	try {
-		const pageSize = 50 // ✅ 50 ta foydalanuvchi
+		const pageSize = 50
 		const skip = (page - 1) * pageSize
 
 		const users = await User.find({})
@@ -453,7 +542,6 @@ const showAllUsers = async (chatId, page = 1) => {
 		const totalUsers = await User.countDocuments()
 		const totalPages = Math.ceil(totalUsers / pageSize)
 
-		// TO'G'RILANGAN: current_page callback uchun yechim
 		let message = `👥 Barcha foydalanuvchilar\n\n`
 		message += `📊 Jami: ${totalUsers} ta\n`
 		message += `📄 Sahifa: ${page}/${totalPages}\n\n`
@@ -475,31 +563,31 @@ const showAllUsers = async (chatId, page = 1) => {
 			})
 		}
 
-		// Pagination keyboard yaratish
+		// Pagination keyboard yaratish - Soddalashtirilgan versiya
 		const inline_keyboard = []
 
-		// Faqat 1 dan ortiq sahifalar bo'lsa pagination qo'shamiz
+		// Pagination tugmalari
 		if (totalPages > 1) {
 			const paginationButtons = []
 
-			// Oldingi sahifa tugmasi (faqat 1-dan keyingi sahifalarda)
+			// Oldingi sahifa
 			if (page > 1) {
 				paginationButtons.push({
-					text: '◀️',
+					text: '◀️ Oldingi',
 					callback_data: `users_page_${page - 1}`
 				})
 			}
 
-			// Joriy sahifa tugmasi (current_page emas, balki ma'lumot beruvchi tugma)
+			// Joriy sahifa (faqat ko'rsatish uchun, bosilmaydi)
 			paginationButtons.push({
 				text: `${page}/${totalPages}`,
-				callback_data: `current_page_${page}` // ✅ Unique identifier
+				callback_data: `current_page`
 			})
 
-			// Keyingi sahifa tugmasi (faqat oxirgi sahifa bo'lmaganda)
+			// Keyingi sahifa
 			if (page < totalPages) {
 				paginationButtons.push({
-					text: '▶️',
+					text: 'Keyingi ▶️',
 					callback_data: `users_page_${page + 1}`
 				})
 			}
@@ -515,7 +603,6 @@ const showAllUsers = async (chatId, page = 1) => {
 
 		inline_keyboard.push([
 			{ text: '🆕 Soʻnggi 7 kun', callback_data: 'recent_users' },
-			{ text: '🔍 Qidirish', callback_data: 'search_user' }
 		])
 
 		inline_keyboard.push([{ text: '◀️ Admin menyu', callback_data: 'back_to_admin' }])
