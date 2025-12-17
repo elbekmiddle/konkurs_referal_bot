@@ -93,7 +93,6 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 			} catch (err) {
 				console.log('⚠️ Profil rasm topilmadi:', err.message)
 			}
-
 			user = new User({
 				chatId,
 				username: msg.chat.username || "Noma'lum",
@@ -293,7 +292,6 @@ bot.on('callback_query', async callbackQuery => {
 	try {
 		// Avval callback query ga javob beramiz
 		await bot.answerCallbackQuery(callbackQuery.id)
-
 		const user = await User.findOne({ chatId })
 		if (!user) {
 			await messageManager.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
