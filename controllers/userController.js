@@ -1542,6 +1542,129 @@ const showUserStats = async chatId => {
 	}
 }
 
+// userController.js fayliga quyidagi funksiyani qo'shing
+
+// Faol konkursni va referal linkni ko'rsatish
+// Faol konkursni va referal linkni ko'rsatish
+const showActiveContestWithReferral = async (chatId) => {
+    try {
+        // 1. Faol konkursni topish
+        const activeContest = await Contest.findOne({ 
+            isActive: true,
+            startDate: { $lte: new Date() },
+            endDate: { $gte: new Date() }
+        }).sort({ startDate: -1 }).limit(1);
+        
+        // 2. User ma'lumotlarini olish
+        const user = await User.findOne({ chatId });
+        if (!user) return;
+        
+        // 3. Referal link yaratish
+        const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`;
+        
+        // 4. Xabar tayyorlash
+        let message = '';
+        let image = null;
+        
+        if (activeContest) {
+            message = 
+                `🏆 *${activeContest.name}*\n\n` +
+                `📝 ${activeContest.description}\n\n` +
+                `💰 *Mukofot:* ${activeContest.reward} ball\n` +
+                `🎁 *Qo'shimcha bonus:* ${activeContest.bonus || 0} ball\n` +
+                `👑 *G'oliblar soni:* ${activeContest.winnerCount} ta\n` +
+                `📅 *Boshlanish:* ${formatDate(activeContest.startDate)}\n` +
+                `⏳ *Tugash:* ${formatDate(activeContest.endDate)}\n` +
+                `👥 *Qatnashuvchilar:* ${activeContest.participants?.length || 0} ta\n\n` +
+                `📊 *KONKURS STATISTIKASI*\n` +
+                `🔹 Sizning ballaringiz: ${user.points}\n` +
+                `🔹 Sizning takliflaringiz: ${user.referrals} ta\n\n` +
+                `👇 Quyidagi tugma orqali konkursga qatnashing`;
+            
+            image = activeContest.image;
+        } else {
+            message = 
+                `🤷‍♂️ *Hozirda faol konkurslar yo'q*\n\n` +
+                `📊 *SIZNING STATISTIKANGIZ*\n` +
+                `🔹 Ballaringiz: ${user.points}\n` +
+                `🔹 Takliflaringiz: ${user.referrals} ta\n\n` +
+                `👥 Do'stlaringizni taklif qilib ball yig'ing!\n` +
+                `Har bir do'stingiz uchun ${process.env.REFERRAL_BONUS || 10} ball olasiz!`;
+        }
+        
+        // 5. Keyboard tayyorlash
+        const keyboard = {
+            reply_markup: {
+                inline_keyboard: []
+            }
+        };
+        
+        // Agar faol konkurs bo'lsa, konkursga qatnashish tugmasi
+        if (activeContest) {
+            keyboard.reply_markup.inline_keyboard.push([
+                {
+                    text: '🎯 Konkursga qatnashish',
+                    callback_data: `contest_join_${activeContest._id}`
+                }
+            ]);
+        }
+        
+        // Referal link ulashish tugmasi
+        keyboard.reply_markup.inline_keyboard.push([
+            {
+                text: '🔗 Referal link ulashish',
+                switch_inline_query: `Menga qo'shiling va ${process.env.REFERRAL_BONUS || 10} ball oling! ${referralLink}`
+            }
+        ]);
+        
+        // Asosiy menyuga qaytish tugmasi
+        keyboard.reply_markup.inline_keyboard.push([
+            {
+                text: '🏠 Asosiy menyu',
+                callback_data: 'main_menu'
+            }
+        ]);
+        
+        // 6. Xabarni yuborish
+        await messageManager.clearMessages(chatId);
+        
+        if (activeContest && image) {
+            // Rasm bilan xabar yuborish
+            await bot.sendPhoto(chatId, image, {
+                caption: message,
+                parse_mode: 'Markdown',
+                reply_markup: keyboard.reply_markup
+            });
+        } else {
+            // Faqat matn bilan xabar yuborish
+            await bot.sendMessage(chatId, message, {
+                parse_mode: 'Markdown',
+                reply_markup: keyboard.reply_markup
+            });
+        }
+        
+        console.log(`✅ Faol konkurs va referal link ko'rsatildi: ${chatId}`);
+        
+    } catch (error) {
+        console.error('❌ Faol konkurs ko\'rsatish xatosi:', error);
+        await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.');
+    }
+};
+
+// Sana formati
+function formatDate(date) {
+    if (!date) return 'Noma\'lum';
+    const d = new Date(date);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+}
+
+// Sana formati
+function formatDate(date) {
+    if (!date) return 'Noma\'lum';
+    const d = new Date(date);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+}
+
 // ==================== EKSPORT QILISH ====================
 
 module.exports = {
@@ -1568,6 +1691,7 @@ module.exports = {
 	showChannelsForSubscription,
 	showChannelsForSubscriptionWithStatus,
 	showHelp,
+	showActiveContestWithReferral,
 	handleConfirmSubscription,
 	showReferredFriendsAsTable,
 	showUserStatsAsTable,

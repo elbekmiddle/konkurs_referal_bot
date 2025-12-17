@@ -797,7 +797,8 @@ async function handleUserMessage(chatId, text, msg) {
 			await userController.showMainMenu(chatId)
 			return
 		}
-		
+		                await userController.showActiveContestWithReferral(chatId)
+
 		// Boshqa menu tugmalari
 		switch (text) {
 			case '📊 Mening statistikam':
@@ -866,6 +867,22 @@ async function handleUserCallback(chatId, messageId, data, user) {
 		// Obuna callback'lari
 		if (data === 'confirm_subscription') {
 			await userController.handleConfirmSubscription(chatId)
+			return
+		}
+		if (text === "✅ Obuna bo'ldim") {
+			const subscription = await channelController.checkUserSubscription(chatId)
+			if (subscription.subscribed) {
+				const user = await User.findOne({ chatId })
+				if (user) {
+					user.isSubscribed = true
+					await user.save()
+				}
+				// OLD: await userController.showMainMenu(chatId);
+				// YANGI: Faol konkurs va referal linkni ko'rsatish
+				await userController.showActiveContestWithReferral(chatId)
+			} else {
+				await messageManager.sendMessage(chatId, "❌ Hali barcha kanallarga obuna bo'lmagansiz.")
+			}
 			return
 		}
 
