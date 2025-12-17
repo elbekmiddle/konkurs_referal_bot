@@ -2142,7 +2142,7 @@ const processContestCreation = async (chatId, msg) => {
                 break;
 
             case 'description':
-                if (!text || text.trim() === '' || text.length > 500) {
+                if (!text || text.trim() === '' || text.length > 4000) {
                     await bot.sendMessage(
                         chatId,
                         "❌ Konkurs tavsifi noto'g'ri.\n" +
