@@ -1546,6 +1546,7 @@ const showUserStats = async chatId => {
 
 // Faol konkursni va referal linkni ko'rsatish
 // Faol konkursni va referal linkni ko'rsatish
+// Faol konkursni va referal linkni ko'rsatish
 const showActiveContestWithReferral = async (chatId) => {
     try {
         // 1. Faol konkursni topish
@@ -1562,24 +1563,25 @@ const showActiveContestWithReferral = async (chatId) => {
         // 3. Referal link yaratish
         const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`;
         
-        // 4. Xabar tayyorlash
+        // 4. Xabar tayyorlash (QISQARTIRILGAN VERSIYA)
         let message = '';
         let image = null;
         
         if (activeContest) {
+            // Tavsifni qisqartirish (max 900 belgi)
+            let shortDescription = activeContest.description;
+            if (shortDescription.length > 300) {
+                shortDescription = shortDescription.substring(0, 300) + '...';
+            }
+            
             message = 
                 `🏆 *${activeContest.name}*\n\n` +
-                `📝 ${activeContest.description}\n\n` +
+                `📝 ${shortDescription}\n\n` +
                 `💰 *Mukofot:* ${activeContest.reward} ball\n` +
-                `🎁 *Qo'shimcha bonus:* ${activeContest.bonus || 0} ball\n` +
                 `👑 *G'oliblar soni:* ${activeContest.winnerCount} ta\n` +
                 `📅 *Boshlanish:* ${formatDate(activeContest.startDate)}\n` +
                 `⏳ *Tugash:* ${formatDate(activeContest.endDate)}\n` +
-                `👥 *Qatnashuvchilar:* ${activeContest.participants?.length || 0} ta\n\n` +
-                `📊 *KONKURS STATISTIKASI*\n` +
-                `🔹 Sizning ballaringiz: ${user.points}\n` +
-                `🔹 Sizning takliflaringiz: ${user.referrals} ta\n\n` +
-                `👇 Quyidagi tugma orqali konkursga qatnashing`;
+                `👥 *Qatnashuvchilar:* ${activeContest.participants?.length || 0} ta`;
             
             image = activeContest.image;
         } else {
@@ -1587,9 +1589,7 @@ const showActiveContestWithReferral = async (chatId) => {
                 `🤷‍♂️ *Hozirda faol konkurslar yo'q*\n\n` +
                 `📊 *SIZNING STATISTIKANGIZ*\n` +
                 `🔹 Ballaringiz: ${user.points}\n` +
-                `🔹 Takliflaringiz: ${user.referrals} ta\n\n` +
-                `👥 Do'stlaringizni taklif qilib ball yig'ing!\n` +
-                `Har bir do'stingiz uchun ${process.env.REFERRAL_BONUS || 10} ball olasiz!`;
+                `🔹 Takliflaringiz: ${user.referrals} ta`;
         }
         
         // 5. Keyboard tayyorlash
@@ -1605,6 +1605,14 @@ const showActiveContestWithReferral = async (chatId) => {
                 {
                     text: '🎯 Konkursga qatnashish',
                     callback_data: `contest_join_${activeContest._id}`
+                }
+            ]);
+            
+            // Batafsil tugmasi
+            keyboard.reply_markup.inline_keyboard.push([
+                {
+                    text: '📋 Batafsil ma\'lumot',
+                    callback_data: `user_contest_${activeContest._id}`
                 }
             ]);
         }
@@ -1627,6 +1635,13 @@ const showActiveContestWithReferral = async (chatId) => {
         
         // 6. Xabarni yuborish
         await messageManager.clearMessages(chatId);
+        
+        // Telegram caption uchun max 1024 belgi cheklovi
+        const MAX_CAPTION_LENGTH = 900; // Xavfsizlik uchun 900 belgi
+        
+        if (message.length > MAX_CAPTION_LENGTH) {
+            message = message.substring(0, MAX_CAPTION_LENGTH) + '...';
+        }
         
         if (activeContest && image) {
             // Rasm bilan xabar yuborish
