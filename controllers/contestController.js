@@ -2026,41 +2026,355 @@ const isMenuCommandContest = text => {
 
 // ==================== KONKURS YARATISH JARAYONI ====================
 
+// controllers/contestController.js ichida
+
 const processContestCreation = async (chatId, msg) => {
-	try {
-		const state = userStates[chatId]
-		if (!state || state.action !== 'create_contest') return
+    try {
+        const state = userStates[chatId];
+        if (!state || state.action !== 'create_contest') return;
 
-		const text = msg.text
-		const hasImage = getImageFileId(msg)
+        const text = msg.text || '';
+        const hasImage = getImageFileId(msg);
 
-		console.log(`📝 Step: ${state.step}, Text: "${text}", HasImage: ${hasImage}`)
+        console.log(`📝 Step: ${state.step}, Text: "${text}", HasImage: ${hasImage}, Message type: ${msg.photo ? 'photo' : msg.document ? 'document' : 'text'}`);
 
-		// ✅ BEKOR QILISH TUGMASI
-		if (text === '❌ Bekor qilish') {
-			delete userStates[chatId]
-			await bot.sendMessage(chatId, '❌ Konkurs yaratish bekor qilindi.', {
-				reply_markup: adminKeyboardContest.reply_markup
-			})
-			return
-		}
+        // ✅ BEKOR QILISH
+        if (text === '❌ Bekor qilish') {
+            await handleCancelContestCreation(chatId);
+            return;
+        }
 
-		// ✅ MENU TUGMALARI TEKSHIRISH
-		if (isMenuCommandContest(text)) {  // isMenuCommandContest ishlatildi
-			delete userStates[chatId]
-			await bot.sendMessage(chatId, '❌ Konkurs yaratish bekor qilindi. Asosiy menyuga qaytildi.', {
-				reply_markup: adminKeyboardContest.reply_markup
-			})
-			return
-		}
+        // ✅ MENU TUGMALARI TEKSHIRISH
+        if (isMenuCommandContest(text)) {
+            await handleCancelContestCreation(chatId);
+            return;
+        }
 
-		// ... qolgan kod
-	} catch (error) {
-		console.error('❌ Konkurs yaratish xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Konkurs yaratishda xatolik yuz berdi.')
-		delete userStates[chatId]
-	}
-}
+        // ✅ IMAGE STEP uchun alohida logika
+        if (state.step === 'image') {
+            console.log(`🖼️ Image step processing...`);
+            
+            // Agar rasm yuborilgan bo'lsa
+            if (hasImage) {
+                console.log(`✅ Image found: ${hasImage}`);
+                await bot.sendMessage(chatId, '⏳ Rasm yuklanmoqda... Iltimos, kuting.');
+
+                const uploadResult = await uploadTelegramFile(hasImage, state.data.name);
+
+                if (uploadResult.success) {
+                    state.data.image = uploadResult.url;
+                    await bot.sendMessage(chatId, '✅ Rasm muvaffaqiyatli yuklandi!');
+                } else {
+                    await bot.sendMessage(
+                        chatId,
+                        '❌ Rasm yuklash muvaffaqiyatsiz. Konkurs rasmsiz yaratiladi.'
+                    );
+                    state.data.image = null;
+                }
+                
+                await saveContest(chatId, state.data);
+                return;
+            } 
+            
+            // Agar "Rasmsiz davom etish" bosilsa (callback_data)
+            if (msg.data === 'skip_image') {
+                state.data.image = null;
+                await saveContest(chatId, state.data);
+                return;
+            }
+            
+            // Agar rasm emas, matn yuborilsa
+            if (text) {
+                await bot.sendMessage(
+                    chatId,
+                    'ℹ️ Iltimos, konkurs uchun rasm yuboring yoki "Rasmsiz davom etish" tugmasini bosing.',
+                    {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [
+                                    {
+                                        text: '🚫 Rasmsiz davom etish',
+                                        callback_data: 'skip_image'
+                                    }
+                                ]
+                            ]
+                        }
+                    }
+                );
+                return;
+            }
+            
+            // Hech narsa yuborilmagan (faqat rasm kutilyapti)
+            return;
+        }
+
+        // ✅ BOSHQACHA QADAMLAR uchun (faqat matn)
+        switch (state.step) {
+            case 'name':
+                if (!text || text.trim() === '' || text.length > 100) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Konkurs nomi noto'g'ri.\n" +
+                        "• Nom bo'sh bo'lmasligi kerak\n" +
+                        "• Nom 100 ta belgidan oshmasligi kerak\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+
+                state.data.name = text.trim();
+                state.step = 'description';
+
+                await bot.sendMessage(
+                    chatId,
+                    `✅ <b>Nomi saqlandi:</b> ${state.data.name}\n\n` +
+                    `<b>2-qadam:</b> Konkurs tavsifini kiriting:\n\n` +
+                    `📝 Konkurs haqida batafsil ma'lumot yozing.\n` +
+                    `<i>Maksimal 500 ta belgi</i>`,
+                    { 
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            keyboard: [[{ text: '❌ Bekor qilish' }]],
+                            resize_keyboard: true
+                        }
+                    }
+                );
+                break;
+
+            case 'description':
+                if (!text || text.trim() === '' || text.length > 500) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Konkurs tavsifi noto'g'ri.\n" +
+                        "• Tavsif bo'sh bo'lmasligi kerak\n" +
+                        "• Tavsif 500 ta belgidan oshmasligi kerak\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+
+                state.data.description = text.trim();
+                state.step = 'points';
+
+                await bot.sendMessage(
+                    chatId,
+                    `✅ <b>Tavsif saqlandi</b>\n\n` +
+                    `<b>3-qadam:</b> Mukofot ball miqdorini kiriting:\n\n` +
+                    `💰 Konkurs g'oliblari qancha ball olishini kiriting.\n` +
+                    `<i>Masalan: 100, 500, 1000</i>`,
+                    { 
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            keyboard: [[{ text: '❌ Bekor qilish' }]],
+                            resize_keyboard: true
+                        }
+                    }
+                );
+                break;
+
+            case 'points':
+                const points = parseInt(text);
+                if (isNaN(points) || points <= 0 || points > 100000) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Noto'g'ri ball miqdori.\n" +
+                        "• 0 dan katta raqam bo'lishi kerak\n" +
+                        "• Maksimal 100,000 ball\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+
+                state.data.points = points;
+                state.step = 'bonus';
+
+                await bot.sendMessage(
+                    chatId,
+                    `✅ <b>Mukofot ballari saqlandi:</b> ${points} ball\n\n` +
+                    `<b>4-qadam:</b> Bonus ball miqdorini kiriting:\n\n` +
+                    `🎁 Konkursda qatnashgan har bir foydalanuvchi qancha bonus ball olishini kiriting.\n` +
+                    `<i>Masalan: 10, 25, 50</i>`,
+                    { 
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            keyboard: [[{ text: '❌ Bekor qilish' }]],
+                            resize_keyboard: true
+                        }
+                    }
+                );
+                break;
+
+            case 'bonus':
+                const bonus = parseInt(text);
+                if (isNaN(bonus) || bonus < 0 || bonus > 10000) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Noto'g'ri bonus miqdori.\n" +
+                        "• 0 yoki undan katta raqam bo'lishi kerak\n" +
+                        "• Maksimal 10,000 ball\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+
+                state.data.bonus = bonus;
+                state.step = 'winners_count';
+
+                await bot.sendMessage(
+                    chatId,
+                    `✅ <b>Bonus ballari saqlandi:</b> ${bonus} ball\n\n` +
+                    `<b>5-qadam:</b> G'oliblar sonini kiriting:\n\n` +
+                    `👑 Konkursda nechta odam g'olib bo'lishini kiriting.\n` +
+                    `<i>Masalan: 1, 3, 5, 10</i>`,
+                    { 
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            keyboard: [[{ text: '❌ Bekor qilish' }]],
+                            resize_keyboard: true
+                        }
+                    }
+                );
+                break;
+
+            case 'winners_count':
+                const winnersCount = parseInt(text);
+                if (isNaN(winnersCount) || winnersCount < 1 || winnersCount > 100) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Noto'g'ri g'oliblar soni.\n" +
+                        "• 1 yoki undan katta raqam bo'lishi kerak\n" +
+                        "• Maksimal 100 ta g'olib\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+
+                state.data.winnersCount = winnersCount;
+                state.step = 'start_date';
+
+                await bot.sendMessage(
+                    chatId,
+                    `✅ <b>G'oliblar soni saqlandi:</b> ${winnersCount} ta\n\n` +
+                    `<b>6-qadam:</b> Boshlanish sanasini kiriting:\n\n` +
+                    `📅 Quyidagi formatda sana kiriting:\n` +
+                    `<code>YYYY-MM-DD</code>\n\n` +
+                    `📌 <b>Misollar:</b>\n` +
+                    `• 2025-12-01\n` +
+                    `• 2025-12-15\n` +
+                    `• 2026-01-10`,
+                    { 
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            keyboard: [[{ text: '❌ Bekor qilish' }]],
+                            resize_keyboard: true
+                        }
+                    }
+                );
+                break;
+
+            case 'start_date':
+                const startDate = new Date(text);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                if (isNaN(startDate.getTime())) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Noto'g'ri sana formati.\n" +
+                        "• YYYY-MM-DD formatida kiriting\n" +
+                        "• To'g'ri sana kiriting\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+                
+                if (startDate < today) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Boshlanish sanasi bugundan oldin bo'lishi mumkin emas.\n" +
+                        "• Kelajakdagi sana kiriting\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+
+                state.data.startDate = startDate;
+                state.step = 'end_date';
+
+                await bot.sendMessage(
+                    chatId,
+                    `✅ <b>Boshlanish sanasi saqlandi:</b> ${startDate.toLocaleDateString('uz-UZ')}\n\n` +
+                    `<b>7-qadam:</b> Tugash sanasini kiriting:\n\n` +
+                    `📅 Quyidagi formatda sana kiriting:\n` +
+                    `<code>YYYY-MM-DD</code>`,
+                    { 
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            keyboard: [[{ text: '❌ Bekor qilish' }]],
+                            resize_keyboard: true
+                        }
+                    }
+                );
+                break;
+
+            case 'end_date':
+                const endDate = new Date(text);
+                const startDateObj = state.data.startDate;
+                
+                if (isNaN(endDate.getTime())) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Noto'g'ri sana formati.\n" +
+                        "• YYYY-MM-DD formatida kiriting\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+                
+                if (endDate <= startDateObj) {
+                    await bot.sendMessage(
+                        chatId,
+                        "❌ Tugash sanasi boshlanish sanasidan keyin bo'lishi kerak.\n" +
+                        "• Boshlanish sanasi: " + startDateObj.toLocaleDateString('uz-UZ') + "\n" +
+                        "• Tugash sanasi undan keyin bo'lishi kerak\n\n" +
+                        "Iltimos, qayta kiriting:"
+                    );
+                    return;
+                }
+
+                state.data.endDate = endDate;
+                state.step = 'image';
+
+                await bot.sendMessage(
+                    chatId,
+                    `✅ <b>Tugash sanasi saqlandi:</b> ${endDate.toLocaleDateString('uz-UZ')}\n\n` +
+                    `<b>8-qadam (oxirgi qadam):</b> Konkurs rasmini yuboring:\n\n` +
+                    `🖼️ Rasmni <b>istalgan formatda</b> yuborishingiz mumkin:\n` +
+                    `• 📸 Photo sifatida\n` +
+                    `• 📎 Document sifatida\n\n` +
+                    `🔸 Agar rasm yubormasangiz, konkurs <i>rasmsiz</i> yaratiladi.`,
+                    {
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [
+                                    {
+                                        text: '🚫 Rasmsiz davom etish',
+                                        callback_data: 'skip_image'
+                                    }
+                                ]
+                            ]
+                        }
+                    }
+                );
+                break;
+        }
+    } catch (error) {
+        console.error('❌ Konkurs yaratish xatosi:', error);
+        await bot.sendMessage(chatId, '❌ Konkurs yaratishda xatolik yuz berdi.');
+        delete userStates[chatId];
+    }
+};
 
 module.exports = {
 	userStates,

@@ -3,7 +3,7 @@ const Channel = require('../models/Channel')
 const { mainMenuKeyboard, backKeyboard } = require('../utils/keyboards')
 const messageManager = require('../utils/messageManager')
 const bot = require('./bot')
-
+const Contest = require('../models/Contest')
 // ==================== XABARLARNI BOSHQARISH ====================
 
 const userLastMessages = {}
@@ -32,11 +32,20 @@ const processReferral = async (referrerChatId, newUser) => {
 		const referrer = await User.findOne({ chatId: parseInt(referrerChatId) })
 
 		if (!referrer) {
-			console.log('❌ Referal topilmadi:', referrerChatId)
+			console.log('❌ Referrer topilmadi:', referrerChatId)
 			return
 		}
 
-		// Agar bu foydalanuvchi allaqachon taklif qilingan bo'lsa
+		// 1. Agar referrer hali obuna bo'lmagan bo'lsa, saqlab qo'yamiz
+		if (!referrer.isSubscribed) {
+			console.log(`ℹ️ Referrer hali obuna bo'lmagan: ${referrerChatId}`)
+			// Faqat referal ma'lumotlarini saqlaymiz, ball bermaymiz
+			newUser.refBy = parseInt(referrerChatId)
+			await newUser.save()
+			return
+		}
+
+		// 2. Agar bu foydalanuvchi allaqachon taklif qilingan bo'lsa
 		const existingReferral = referrer.referredUsers.find(ref => ref.chatId === newUser.chatId)
 
 		if (existingReferral) {
@@ -88,6 +97,80 @@ const processReferral = async (referrerChatId, newUser) => {
 	}
 }
 
+
+const awardReferralBonus = async userId => {
+	try {
+		const user = await User.findById(userId)
+
+		if (!user) {
+			console.log('❌ Foydalanuvchi topilmadi')
+			return
+		}
+
+		// Agar referal orqali kelgan bo'lsa
+		if (user.refBy && user.isSubscribed) {
+			const referrer = await User.findOne({ chatId: user.refBy })
+
+			if (referrer && referrer.isSubscribed) {
+				// Referrer uchun ball
+				referrer.points += 10
+				referrer.referrals += 1
+
+				// Taklif qilingan foydalanuvchini qo'shish
+				referrer.referredUsers.push({
+					chatId: user.chatId,
+					username: user.username || "Noma'lum",
+					fullName: user.fullName || 'Foydalanuvchi',
+					joinDate: user.joinDate,
+					points: user.points || 0
+				})
+
+				// Taklif qilingan foydalanuvchi uchun ball (agar hali olmagan bo'lsa)
+				if (!user.hasReceivedReferralBonus) {
+					user.points += 5
+					user.hasReceivedReferralBonus = true
+				}
+
+				await referrer.save()
+				await user.save()
+
+				console.log(`✅ Referal bonus berildi: ${referrer.chatId} -> ${user.chatId}`)
+
+				// Taklif qilgan foydalanuvchiga xabar
+				try {
+					await bot.sendMessage(
+						referrer.chatId,
+						`🎉 *Yangi taklif bonus!*\n\n` +
+							`Sizning taklif havolangiz orqali ${user.fullName} botdan foydalanishni boshladi!\n\n` +
+							`💰 Sizga 10 ball berildi!\n` +
+							`🎁 ${user.fullName} ga 5 ball berildi!\n` +
+							`📊 Sizning ballaringiz: ${referrer.points}\n` +
+							`👥 Jami takliflar: ${referrer.referredUsers.length} ta`,
+						{ parse_mode: 'Markdown' }
+					)
+				} catch (error) {
+					console.error('Referal bonus xabar yuborish xatosi:', error)
+				}
+
+				// Taklif qilingan foydalanuvchiga xabar
+				try {
+					await bot.sendMessage(
+						user.chatId,
+						`🎁 *Referal bonus!*\n\n` +
+							`Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n\n` +
+							`💰 Sizga 5 ball berildi!\n` +
+							`📊 Sizning ballaringiz: ${user.points}`,
+						{ parse_mode: 'Markdown' }
+					)
+				} catch (error) {
+					console.error('Taklif qilingan foydalanuvchiga xabar yuborish xatosi:', error)
+				}
+			}
+		}
+	} catch (error) {
+		console.error('❌ Referal bonus berish xatosi:', error)
+	}
+}
 // ==================== START COMMAND ====================
 
 const handleStart = async (chatId, startParam = null) => {
@@ -299,6 +382,138 @@ const showChannelsForSubscriptionWithStatus = async (chatId, channels, notSubscr
 
 // ==================== OBUNA TASDIQLASH ====================
 
+// const handleConfirmSubscription = async chatId => {
+// 	try {
+// 		console.log(`🔍 Obuna tasdiqlash boshlanmoqda: ${chatId}`)
+
+// 		const user = await User.findOne({ chatId })
+
+// 		if (!user) {
+// 			console.log('❌ Foydalanuvchi topilmadi')
+// 			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+// 			return
+// 		}
+
+// 		// AGAR ALLAQACHON OBUNA BO'LGAN BO'LSA
+// 		if (user.isSubscribed) {
+// 			console.log("ℹ️ Foydalanuvchi allaqachon obuna bo'lgan")
+// 			await bot.sendMessage(chatId, "✅ Siz allaqachon obuna bo'lgansiz!", mainMenuKeyboard)
+// 			return
+// 		}
+
+// 		// YUKLANISH XABARI
+// 		const loadingMsg = await bot.sendMessage(chatId, '🔍 Obuna holatingiz tekshirilmoqda...')
+
+// 		// KANALLARNI OLISH
+// 		const channels = await Channel.find({
+// 			isActive: true,
+// 			requiresSubscription: true
+// 		})
+
+// 		console.log(`📋 Kanallar soni: ${channels.length}`)
+
+// 		if (channels.length === 0) {
+// 			await bot.deleteMessage(chatId, loadingMsg.message_id)
+// 			user.isSubscribed = true
+// 			await user.save()
+
+// 			await bot.sendMessage(
+// 				chatId,
+// 				"✅ Majburiy kanallar yo'q. Obuna holatingiz tasdiqlandi!",
+// 				mainMenuKeyboard
+// 			)
+// 			return
+// 		}
+
+// 		// HAQQIQIY OBUNA HOLATINI TEKSHIRISH
+// 		let allSubscribed = true
+// 		let notSubscribedChannels = []
+
+// 		for (const channel of channels) {
+// 			try {
+// 				if (channel.channelId) {
+// 					const channelIdNum = channel.channelId.startsWith('-100')
+// 						? channel.channelId
+// 						: `-100${channel.channelId}`
+
+// 					const chatMember = await bot.getChatMember(channelIdNum, chatId)
+// 					const isMember = ['member', 'administrator', 'creator'].includes(chatMember.status)
+
+// 					console.log(`📊 ${channel.name} holati: ${chatMember.status}`)
+
+// 					if (!isMember) {
+// 						allSubscribed = false
+// 						notSubscribedChannels.push({
+// 							name: channel.name,
+// 							link: channel.link
+// 						})
+// 					}
+// 				}
+// 			} catch (error) {
+// 				console.error(`❌ Kanal tekshirish xatosi (${channel.name}):`, error.message)
+// 				allSubscribed = false
+// 				notSubscribedChannels.push({
+// 					name: channel.name,
+// 					link: channel.link,
+// 					error: true
+// 				})
+// 			}
+// 		}
+
+// 		await bot.deleteMessage(chatId, loadingMsg.message_id)
+
+// 		// NATIJALARGA QARAB HARAKAT
+// 		if (allSubscribed) {
+// 			console.log(`✅ ${chatId} barcha kanallarga obuna bo'lgan`)
+
+// 			user.isSubscribed = true
+// 			await user.save()
+
+// 			await bot.sendMessage(
+// 				chatId,
+// 				`✅ Tabriklaymiz!\n\nSiz barcha ${channels.length} ta kanalga obuna bo'lgansiz! 🎉\n\n` +
+// 					`Endi botning barcha funksiyalaridan foydalanishingiz mumkin.`,
+// 				mainMenuKeyboard
+// 			)
+// 		} else {
+// 			console.log(`❌ ${chatId} barcha kanallarga obuna bo'lmagan`)
+
+// 			let message = `❌ Siz barcha kanallarga obuna bo'lmagansiz!\n\n`
+// 			message += `📊 Holat: ${channels.length - notSubscribedChannels.length}/${
+// 				channels.length
+// 			} kanalga obuna bo'lgansiz\n\n`
+// 			message += `Obuna bo'lmagan kanallar:\n\n`
+
+// 			notSubscribedChannels.forEach((channel, index) => {
+// 				message += `${index + 1}. ${channel.name}\n`
+// 				if (channel.link) {
+// 					message += `   ${channel.link}\n`
+// 				}
+// 				if (channel.error) {
+// 					message += `   ⚠️ Tekshirish xatosi\n`
+// 				}
+// 				message += '\n'
+// 			})
+
+// 			message += `Iltimos, yuqoridagi kanallarga obuna bo'ling va "🔄 Qayta tekshirish" tugmasini bosing.`
+
+// 			const inline_keyboard = notSubscribedChannels.map(channel => [
+// 				{ text: `📺 ${channel.name} ga o'tish`, url: channel.link || '#' }
+// 			])
+
+// 			inline_keyboard.push([{ text: '🔄 Qayta tekshirish', callback_data: 'check_subscription' }])
+
+// 			await bot.sendMessage(chatId, message, {
+// 				parse_mode: 'Markdown',
+// 				reply_markup: { inline_keyboard }
+// 			})
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ Obuna tasdiqlash xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Obuna tekshirishda xatolik yuz berdi')
+// 	}
+// }
+
 const handleConfirmSubscription = async chatId => {
 	try {
 		console.log(`🔍 Obuna tasdiqlash boshlanmoqda: ${chatId}`)
@@ -333,6 +548,9 @@ const handleConfirmSubscription = async chatId => {
 			await bot.deleteMessage(chatId, loadingMsg.message_id)
 			user.isSubscribed = true
 			await user.save()
+
+			// ✅ O'ZGARTIRISH: Obuna bo'lgach, referal bonus berish
+			await awardReferralBonus(user._id)
 
 			await bot.sendMessage(
 				chatId,
@@ -385,6 +603,9 @@ const handleConfirmSubscription = async chatId => {
 
 			user.isSubscribed = true
 			await user.save()
+
+			// ✅ O'ZGARTIRISH: Obuna bo'lgach, referal bonus berish
+			await awardReferralBonus(user._id)
 
 			await bot.sendMessage(
 				chatId,
@@ -1038,6 +1259,71 @@ const checkAllChannelSubscriptions = async chatId => {
 
 // ==================== ASOSIY MENYU ====================
 
+// const showMainMenu = async chatId => {
+// 	try {
+// 		console.log(`🏠 Asosiy menyu ko'rsatilmoqda: ${chatId}`)
+
+// 		const user = await User.findOne({ chatId })
+// 		if (!user) {
+// 			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi. /start bosing.')
+// 			return
+// 		}
+
+// 		// Asosiy menyu matni
+// 		const message = `
+// Assalomu aleykum ${user.fullName}
+// ⭐ Ballar: ${user.points || 0}
+// 👥 Takliflar: ${user.referrals || 0}
+
+// ${user.isSubscribed ? '✅ Obuna holati: Faol' : '❌ Obuna holati: Faol emas'}
+
+// *⚡️ ASOSIY MENYU ⚡️*
+// `
+
+// 		// Asosiy menyu tugmalari
+// 		const mainMenuKeyboard = {
+// 			reply_markup: {
+// 				keyboard: [
+// 					['📊 Mening statistikam', "👥 Do'stlarni taklif qilish"],
+// 					['🎯 Konkurslar', '🏆 Reyting'],
+// 					['⭐️ Kunlik bonus', 'ℹ️ Yordam']
+// 				],
+// 				resize_keyboard: true
+// 			}
+// 		}
+
+// 		// Agar foydalanuvchi obuna bo'lmagan bo'lsa
+// 		if (!user.isSubscribed) {
+// 			mainMenuKeyboard.reply_markup.keyboard.unshift(["✅ Obuna bo'ldim"])
+// 		}
+
+// 		// Bot orqali to'g'ridan-to'g'ri xabar yuborish
+// 		await bot.sendMessage(chatId, message, {
+// 			parse_mode: 'Markdown',
+// 			reply_markup: mainMenuKeyboard.reply_markup
+// 		})
+// 	} catch (error) {
+// 		console.error('❌ Asosiy menyuni koʻrsatish xatosi:', error)
+
+// 		// Oddiy xabar bilan urinish
+// 		try {
+// 			await bot.sendMessage(chatId, "🏠 *ASOSIY MENYU*\n\nKerakli bo'limni tanlang:", {
+// 				parse_mode: 'Markdown',
+// 				reply_markup: {
+// 					keyboard: [
+// 						['📊 Mening statistikam', "👥 Do'stlarni taklif qilish"],
+// 						['🎯 Konkurslar', '🏆 Reyting'],
+// 						['⭐️ Kunlik bonus', 'ℹ️ Yordam']
+// 					],
+// 					resize_keyboard: true
+// 				}
+// 			})
+// 		} catch (sendError) {
+// 			console.error('❌ Yana xato yuz berdi:', sendError)
+// 		}
+// 	}
+// }
+
 const showMainMenu = async chatId => {
 	try {
 		console.log(`🏠 Asosiy menyu ko'rsatilmoqda: ${chatId}`)
@@ -1048,39 +1334,103 @@ const showMainMenu = async chatId => {
 			return
 		}
 
+		// Agar foydalanuvchi obuna bo'lmagan bo'lsa, kanallar ro'yxatini ko'rsatish
+		if (!user.isSubscribed) {
+			await showChannelsForSubscriptionWithStatus(chatId)
+			return
+		}
+
+		// O'ZINGIZNING STATISTIKANGIZ
+		const totalUsers = await User.countDocuments()
+		const userRank = (await User.countDocuments({ points: { $gt: user.points } })) + 1
+
+		// O'z referal havolangiz
+		const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`
+
+		// Konkurslarni olish
+		const contests = await Contest.find({ isActive: true }).sort({ createdAt: -1 }).limit(3)
+
 		// Asosiy menyu matni
 		const message = `
-Assalomu aleykum ${user.fullName}
-⭐ Ballar: ${user.points || 0}
-👥 Takliflar: ${user.referrals || 0}
+👋 *Assalomu alaykum, ${user.fullName}!*
 
-${user.isSubscribed ? '✅ Obuna holati: Faol' : '❌ Obuna holati: Faol emas'}
+⭐️ *Sizning ballaringiz:* ${user.points || 0}
+🏆 *Reytingdagi o'rningiz:* ${userRank}/${totalUsers}
+👥 *Taklif qilganlar:* ${user.referrals || 0} ta
 
-*⚡️ ASOSIY MENYU ⚡️*
+🔗 *Sizning taklif havolangiz:*
+\`${referralLink}\`
+
+📋 *Aktiv konkurslar:* ${contests.length} ta
+
+*Quyidagi bo'limlardan birini tanlang:*
 `
 
-		// Asosiy menyu tugmalari
-		const mainMenuKeyboard = {
-			reply_markup: {
-				keyboard: [
-					['📊 Mening statistikam', "👥 Do'stlarni taklif qilish"],
-					['🎯 Konkurslar', '🏆 Reyting'],
-					['⭐️ Kunlik bonus', 'ℹ️ Yordam']
-				],
-				resize_keyboard: true
+		// Inline keyboard yaratish
+		const inlineKeyboard = []
+
+		// 1. Referal linkini ulashish uchun tugma
+		inlineKeyboard.push([
+			{
+				text: '🔗 Taklif havolasini ulashish',
+				url: `https://t.me/share/url?url=${encodeURIComponent(
+					referralLink
+				)}&text=${encodeURIComponent(
+					`Men sizga ${
+						process.env.BOT_NAME || 'ushbu bot'
+					} ni taklif qilaman! Ball to'plang va mukofotlarni yutib oling! 🎯`
+				)}`
 			}
+		])
+
+		// 2. Faol konkurslar (maximum 3 ta)
+		if (contests.length > 0) {
+			contests.forEach((contest, index) => {
+				const buttonText = `🎯 ${contest.name}`.substring(0, 30) // Matn uzunligini cheklash
+				inlineKeyboard.push([
+					{
+						text: buttonText,
+						callback_data: `user_contest_${contest._id}`
+					}
+				])
+			})
 		}
 
-		// Agar foydalanuvchi obuna bo'lmagan bo'lsa
-		if (!user.isSubscribed) {
-			mainMenuKeyboard.reply_markup.keyboard.unshift(["✅ Obuna bo'ldim"])
+		// 3. Barcha konkurslarni ko'rish
+		if (contests.length > 0) {
+			inlineKeyboard.push([
+				{
+					text: '📋 Barcha konkurslar',
+					callback_data: 'list_contests_user'
+				}
+			])
 		}
 
-		// Bot orqali to'g'ridan-to'g'ri xabar yuborish
+		// 4. Asosiy menyu tugmalari
+		inlineKeyboard.push(
+			[
+				{ text: '📊 Mening statistikam', callback_data: 'show_stats' },
+				{ text: "👥 Do'stlarni taklif qilish", callback_data: 'show_referral' }
+			],
+			[
+				{ text: '🎯 Konkurslar', callback_data: 'list_contests_user' },
+				{ text: '🏆 Reyting', callback_data: 'leaderboard' }
+			],
+			[
+				{ text: '⭐️ Kunlik bonus', callback_data: 'daily_bonus' },
+				{ text: 'ℹ️ Yordam', callback_data: 'show_help' }
+			]
+		)
+
+		// Bot orqali inline xabar yuborish
 		await bot.sendMessage(chatId, message, {
 			parse_mode: 'Markdown',
-			reply_markup: mainMenuKeyboard.reply_markup
+			reply_markup: {
+				inline_keyboard: inlineKeyboard
+			}
 		})
+
+		console.log(`✅ Asosiy menyu ko'rsatildi: ${chatId}`)
 	} catch (error) {
 		console.error('❌ Asosiy menyuni koʻrsatish xatosi:', error)
 
@@ -1221,7 +1571,7 @@ module.exports = {
 	handleConfirmSubscription,
 	showReferredFriendsAsTable,
 	showUserStatsAsTable,
-
+	awardReferralBonus,
 	// Qo'shimcha funksiyalar
 	escapeHTML
 }
