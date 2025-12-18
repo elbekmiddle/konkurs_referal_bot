@@ -18,7 +18,6 @@ const {
   startDailyBonusScheduler,
 } = require("./schedulers/dailyBonusScheduler");
 const Settings = require("./models/Settings");
-
 const app = express();
 
 connectDB();
@@ -58,12 +57,44 @@ const adminKeyboard = {
 
 // ==================== MESSAGE CLEANUP FUNCTION ====================
 
+// ==================== MESSAGE CLEANUP FUNCTION ====================
+
 async function cleanupOldMessages(chatId) {
   try {
-    // User uchun xabarlarni tozalash
+    console.log(`🧹 Eski xabarlarni tozalash: ${chatId}`);
+    
+    // 1. MessageManager orqali foydalanuvchi xabarlarini tozalash
     await messageManager.clearMessages(chatId);
+    
+    // 2. Botning o'z yuborgan oxirgi 5-10 ta xabarini o'chirish (ihtiyotkorona)
+    for (let i = 1; i <= 10; i++) {
+      try {
+        await bot.deleteMessage(chatId, i);
+      } catch (error) {
+        // Xabar mavjud emas yoki allaqachon o'chirilgan
+        break;
+      }
+    }
+    
+    console.log(`✅ Xabarlar tozalandi: ${chatId}`);
   } catch (error) {
-    console.error("❌ Xabarlarni tozalashda xatolik:", error);
+    console.error("❌ Xabarlarni tozalashda xatolik:", error.message);
+  }
+}
+
+// ==================== BOT XABARLARINI TOZALASH ====================
+
+async function clearBotMessages(chatId) {
+  try {
+    console.log(`🤖 Bot xabarlarini tozalash: ${chatId}`);
+    
+    // Faqat MessageManager orqali saqlangan xabarlarni tozalash
+    await messageManager.clearMessages(chatId);
+    
+    return true;
+  } catch (error) {
+    console.error("❌ Bot xabarlarini tozalashda xatolik:", error);
+    return false;
   }
 }
 
@@ -1129,117 +1160,213 @@ async function handleAdminMessage(chatId, text, msg) {
 // 	}
 // }
 
+// async function handleUserMessage(chatId, text, msg) {
+//   try {
+//     console.log(`👤 User message handler: ${text}, chatId: ${chatId}`);
+
+//     // ✅ Avval obunani tekshirish
+//     const user = await User.findOne({ chatId });
+//     if (!user) {
+//       await messageManager.sendMessage(
+//         chatId,
+//         "❌ Foydalanuvchi topilmadi. /start ni bosing.",
+//       );
+//       return;
+//     }
+
+//     // ✅ Agar obuna bo'lmagan bo'lsa
+//     if (!user.isSubscribed) {
+//       // Faqat "Obuna bo'ldim" tugmasiga ruxsat berish
+//       if (text === "✅ Obuna bo'ldim") {
+//         // Obunani tekshirish
+//         const subscriptionCheck =
+//           await userController.checkSubscriptionRealTime(chatId);
+//         if (subscriptionCheck.subscribed) {
+//           user.isSubscribed = true;
+//           await user.save();
+//           await userController.showMainMenu(chatId);
+//         } else {
+//           await messageManager.sendMessage(
+//             chatId,
+//             "❌ Hali barcha kanallarga obuna bo'lmagansiz.",
+//           );
+//         }
+//         return;
+//       }
+
+//       // Boshqa menyu tugmalari uchun kanallarni ko'rsatish
+//       if (isUserMenuCommand(text)) {
+//         await showChannelsForUser(chatId);
+//         return;
+//       }
+//     }
+
+//     // Orqaga tugmasi uchun alohida handler
+//     if (text === "🔙 Orqaga") {
+//       console.log(`🔄 User orqaga bosildi: ${chatId}`);
+//       await cleanupOldMessages(chatId);
+//       await userController.showMainMenu(chatId);
+//       return;
+//     }
+
+//     // ✅ Faqat obuna bo'lgan foydalanuvchilar uchun menyu tugmalari
+//     switch (text) {
+//       case "📊 Mening statistikam":
+//         await userController.showUserStats(chatId);
+//         break;
+//       case "👥 Do'stlarni taklif qilish":
+//         await userController.showReferralInfo(chatId);
+//         break;
+//       case "🎯 Konkurslar":
+//         await contestController.showUserContestsList(chatId);
+//         break;
+//       case "🏆 Reyting":
+//         await userController.showLeaderboardAsTable(chatId);
+//         break;
+//       case "⭐️ Kunlik bonus":
+//         await userController.handleDailyBonus(chatId);
+//         break;
+//       case "ℹ️ Yordam":
+//         await userController.showHelp(chatId);
+//         break;
+//       case "✅ Obuna bo'ldim":
+//         // Bu tugma faqat obuna bo'lmagan foydalanuvchilar uchun
+//         const subscription =
+//           await channelController.checkUserSubscription(chatId);
+//         if (subscription.subscribed) {
+//           user.isSubscribed = true;
+//           await user.save();
+//           await userController.showMainMenu(chatId);
+//         } else {
+//           await messageManager.sendMessage(
+//             chatId,
+//             "❌ Hali barcha kanallarga obuna bo'lmagansiz.",
+//           );
+//         }
+//         break;
+
+//       default:
+//         // Agar matnli xabar bo'lsa va command bo'lmasa
+//         if (text && !text.startsWith("/")) {
+//           console.log(`ℹ️ User unknown text: ${text}`);
+//           // Xabar qayta ishlanmagan holatda asosiy menyuga qaytish
+//           await userController.showMainMenu(chatId);
+//         }
+//         const reportState = messageReportController.reportStates?.[chatId];
+//         if (reportState && reportState.action === "send_report") {
+//           await messageReportController.processReportMessage(chatId, msg);
+//           return;
+//         }
+//         const replyState = messageReportController.replyStates?.[chatId];
+//         if (replyState && replyState.action === "reply_to_report") {
+//           await messageReportController.processReplyMessage(chatId, msg);
+//           return;
+//         }
+//     }
+//   } catch (error) {
+//     console.error("❌ User xabarlarini qayta ishlash xatosi:", error);
+//     await messageManager.sendMessage(
+//       chatId,
+//       "❌ Xatolik yuz berdi. Asosiy menyuga qaytish...",
+//     );
+//     await userController.showMainMenu(chatId);
+//   }
+// }
+
 async function handleUserMessage(chatId, text, msg) {
-  try {
-    console.log(`👤 User message handler: ${text}, chatId: ${chatId}`);
+	try {
+		console.log(`👤 User message handler: "${text}", chatId: ${chatId}`)
 
-    // ✅ Avval obunani tekshirish
-    const user = await User.findOne({ chatId });
-    if (!user) {
-      await messageManager.sendMessage(
-        chatId,
-        "❌ Foydalanuvchi topilmadi. /start ni bosing.",
-      );
-      return;
-    }
+		// ✅ Agar user obuna bo'lmagan bo'lsa, faqat "Obuna bo'ldim" tugmasiga ruxsat berish
+		if (text === "✅ Obuna bo'ldim") {
+			await cleanupOldMessages(chatId)
 
-    // ✅ Agar obuna bo'lmagan bo'lsa
-    if (!user.isSubscribed) {
-      // Faqat "Obuna bo'ldim" tugmasiga ruxsat berish
-      if (text === "✅ Obuna bo'ldim") {
-        // Obunani tekshirish
-        const subscriptionCheck =
-          await userController.checkSubscriptionRealTime(chatId);
-        if (subscriptionCheck.subscribed) {
-          user.isSubscribed = true;
-          await user.save();
-          await userController.showMainMenu(chatId);
-        } else {
-          await messageManager.sendMessage(
-            chatId,
-            "❌ Hali barcha kanallarga obuna bo'lmagansiz.",
-          );
-        }
-        return;
-      }
+			const subscription = await channelController.checkUserSubscription(chatId)
+			if (subscription.subscribed) {
+				const user = await User.findOne({ chatId })
+				if (user) {
+					user.isSubscribed = true
+					await user.save()
+				}
+				await clearBotMessages(chatId)
+				await userController.showMainMenu(chatId)
+			} else {
+				await messageManager.sendMessage(chatId, "❌ Hali barcha kanallarga obuna bo'lmagansiz.")
+			}
+			return
+		}
 
-      // Boshqa menyu tugmalari uchun kanallarni ko'rsatish
-      if (isUserMenuCommand(text)) {
-        await showChannelsForUser(chatId);
-        return;
-      }
-    }
+		// ✅ Avval user obuna holatini tekshirish
+		const user = await User.findOne({ chatId })
+		if (!user) {
+			await messageManager.sendMessage(chatId, '❌ Foydalanuvchi topilmadi. /start ni bosing.')
+			return
+		}
 
-    // Orqaga tugmasi uchun alohida handler
-    if (text === "🔙 Orqaga") {
-      console.log(`🔄 User orqaga bosildi: ${chatId}`);
-      await cleanupOldMessages(chatId);
-      await userController.showMainMenu(chatId);
-      return;
-    }
+		if (!user.isSubscribed) {
+			// Agar obuna bo'lmagan bo'lsa, kanallarni ko'rsatish
+			await cleanupOldMessages(chatId)
+			await showChannelsForUser(chatId)
+			return
+		}
 
-    // ✅ Faqat obuna bo'lgan foydalanuvchilar uchun menyu tugmalari
-    switch (text) {
-      case "📊 Mening statistikam":
-        await userController.showUserStats(chatId);
-        break;
-      case "👥 Do'stlarni taklif qilish":
-        await userController.showReferralInfo(chatId);
-        break;
-      case "🎯 Konkurslar":
-        await contestController.showUserContestsList(chatId);
-        break;
-      case "🏆 Reyting":
-        await userController.showLeaderboardAsTable(chatId);
-        break;
-      case "⭐️ Kunlik bonus":
-        await userController.handleDailyBonus(chatId);
-        break;
-      case "ℹ️ Yordam":
-        await userController.showHelp(chatId);
-        break;
-      case "✅ Obuna bo'ldim":
-        // Bu tugma faqat obuna bo'lmagan foydalanuvchilar uchun
-        const subscription =
-          await channelController.checkUserSubscription(chatId);
-        if (subscription.subscribed) {
-          user.isSubscribed = true;
-          await user.save();
-          await userController.showMainMenu(chatId);
-        } else {
-          await messageManager.sendMessage(
-            chatId,
-            "❌ Hali barcha kanallarga obuna bo'lmagansiz.",
-          );
-        }
-        break;
+		// ✅ Orqaga tugmasi
+		if (text === '🔙 Orqaga') {
+			console.log(`🔄 User orqaga bosildi: ${chatId}`)
+			await clearBotMessages(chatId)
+			await userController.showMainMenu(chatId)
+			return
+		}
 
-      default:
-        // Agar matnli xabar bo'lsa va command bo'lmasa
-        if (text && !text.startsWith("/")) {
-          console.log(`ℹ️ User unknown text: ${text}`);
-          // Xabar qayta ishlanmagan holatda asosiy menyuga qaytish
-          await userController.showMainMenu(chatId);
-        }
-        const reportState = messageReportController.reportStates?.[chatId];
-        if (reportState && reportState.action === "send_report") {
-          await messageReportController.processReportMessage(chatId, msg);
-          return;
-        }
-        const replyState = messageReportController.replyStates?.[chatId];
-        if (replyState && replyState.action === "reply_to_report") {
-          await messageReportController.processReplyMessage(chatId, msg);
-          return;
-        }
-    }
-  } catch (error) {
-    console.error("❌ User xabarlarini qayta ishlash xatosi:", error);
-    await messageManager.sendMessage(
-      chatId,
-      "❌ Xatolik yuz berdi. Asosiy menyuga qaytish...",
-    );
-    await userController.showMainMenu(chatId);
-  }
+		// ✅ Boshqa menyu tugmalari
+		await clearBotMessages(chatId) // Avval bot xabarlarini tozalash
+
+		// Menyu tugmalarini qayta ishlash
+		if (text === '📊 Mening statistikam') {
+			console.log(`📊 Statistika tugmasi bosildi: ${chatId}`)
+			await userController.showUserStats(chatId)
+		} else if (text === "👥 Do'stlarni taklif qilish") {
+			console.log(`👥 Taklif tugmasi bosildi: ${chatId}`)
+			await userController.showReferralInfo(chatId)
+		} else if (text === '🎯 Konkurslar') {
+			console.log(`🎯 Konkurslar tugmasi bosildi: ${chatId}`)
+			await contestController.showUserContestsList(chatId)
+		} else if (text === '🏆 Reyting') {
+			console.log(`🏆 Reyting tugmasi bosildi: ${chatId}`)
+			await userController.showLeaderboardAsTable(chatId)
+		} else if (text === '⭐️ Kunlik bonus') {
+			console.log(`⭐️ Kunlik bonus tugmasi bosildi: ${chatId}`)
+			await userController.handleDailyBonus(chatId)
+		} else if (text === 'ℹ️ Yordam') {
+			console.log(`ℹ️ Yordam tugmasi bosildi: ${chatId}`)
+			await userController.showHelp(chatId)
+		} else {
+			// Agar matnli xabar bo'lsa va command bo'lmasa
+			if (text && !text.startsWith('/')) {
+				console.log(`ℹ️ User unknown text: "${text}"`)
+
+				// MessageReport controller holatlarini tekshirish
+				const reportState = messageReportController.reportStates?.[chatId]
+				if (reportState && reportState.action === 'send_report') {
+					await messageReportController.processReportMessage(chatId, msg)
+					return
+				}
+
+				const replyState = messageReportController.replyStates?.[chatId]
+				if (replyState && replyState.action === 'reply_to_report') {
+					await messageReportController.processReplyMessage(chatId, msg)
+					return
+				}
+
+				// Asosiy menyuga qaytish
+				await userController.showMainMenu(chatId)
+			}
+		}
+	} catch (error) {
+		console.error('❌ User xabarlarini qayta ishlash xatosi:', error)
+		await messageManager.sendMessage(chatId, '❌ Xatolik yuz berdi. Asosiy menyuga qaytish...')
+		await userController.showMainMenu(chatId)
+	}
 }
 // ==================== USER CALLBACK HANDLER ====================
 

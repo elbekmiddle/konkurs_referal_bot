@@ -635,7 +635,7 @@ const handleNotImplemented = async (chatId, feature) => {
 
 const showAllUsers = async (chatId, page = 1) => {
 	try {
-		const pageSize = 20
+		const pageSize = 10
 		const skip = (page - 1) * pageSize
 
 		const users = await User.find({})
