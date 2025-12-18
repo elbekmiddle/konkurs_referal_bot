@@ -118,6 +118,136 @@ const processReferral = async (referrerChatId, newUser) => {
 
 // ==================== O'ZGARTIRILGAN handleStart FUNKSIYASI ====================
 
+// const handleStart = async (chatId, startParam = null) => {
+// 	try {
+// 		console.log(`🚀 Start command: chatId=${chatId}, param=${startParam}`)
+
+// 		let user = await User.findOne({ chatId })
+
+// 		if (!user) {
+// 			console.log(`✅ Yangi user yaratish: ${chatId}`)
+
+// 			// Foydalanuvchi ma'lumotlari
+// 			const userData = {
+// 				chatId,
+// 				username: "Noma'lum",
+// 				fullName: 'Foydalanuvchi',
+// 				joinDate: new Date(),
+// 				isSubscribed: false,
+// 				referrals: 0,
+// 				points: 0,
+// 				lastActive: new Date(),
+// 				isAdmin: false,
+// 				referredUsers: []
+// 			}
+
+// 			// Agar referal havolasi bo'lsa
+// 			if (startParam && !isNaN(parseInt(startParam)) && startParam !== chatId.toString()) {
+// 				console.log(`🔗 Referal havolasi bor: ${startParam}`)
+// 				userData.refBy = parseInt(startParam)
+// 			}
+
+// 			user = new User(userData)
+// 			await user.save()
+
+// 			console.log(`✅ Yangi user yaratildi: ${chatId}, refBy: ${startParam}`)
+
+// 			// Referal tizimini ishga tushirish
+// 			if (startParam && startParam !== chatId.toString() && !isNaN(parseInt(startParam))) {
+// 				console.log(`🔍 Referal jarayoni: ${startParam} -> ${chatId}`)
+
+// 				// 1. Avval referrer topilishini tekshirish
+// 				const referrer = await User.findOne({ chatId: parseInt(startParam) })
+
+// 				if (referrer) {
+// 					console.log(`✅ Referrer topildi: ${startParam}`)
+
+// 					// 2. Agar referrer obuna bo'lgan bo'lsa, darhol bonus berish
+// 					if (referrer.isSubscribed) {
+// 						console.log(`✅ Referrer obuna bo'lgan, darhol bonus berish`)
+
+// 						// Referrer ni yangilash
+// 						referrer.referrals += 1
+// 						referrer.points += 10
+
+// 						// Taklif qilingan foydalanuvchini qo'shish
+// 						referrer.referredUsers = referrer.referredUsers || []
+// 						referrer.referredUsers.push({
+// 							chatId: user.chatId,
+// 							username: user.username || "Noma'lum",
+// 							fullName: user.fullName || 'Foydalanuvchi',
+// 							joinDate: user.joinDate,
+// 							points: user.points || 0
+// 						})
+
+// 						// Yangi foydalanuvchiga ball berish
+// 						user.points = 5
+// 						user.hasReceivedReferralBonus = true
+
+// 						// Saqlash
+// 						await referrer.save()
+// 						await user.save()
+
+// 						console.log(`✅ Darhol referal bonus berildi: ${referrer.chatId} -> ${user.chatId}`)
+
+// 						// Xabarlar yuborish
+// 						try {
+// 							await bot.sendMessage(
+// 								referrer.chatId,
+// 								`🎉 <b>Yangi taklif!</b>\n\n` +
+// 									`Sizning taklif havolangiz orqali yangi foydalanuvchi qoʻshildi!\n\n` +
+// 									`👤 Yangi foydalanuvchi: ${user.fullName}\n` +
+// 									`💰 Sizga 10 ball qoʻshildi!\n` +
+// 									`📊 Jami ball: ${referrer.points}\n` +
+// 									`👥 Jami takliflar: ${referrer.referredUsers.length} ta`,
+// 								{ parse_mode: 'HTML' }
+// 							)
+// 						} catch (error) {
+// 							console.log('⚠️ Xabar yuborishda xato:', error.message)
+// 						}
+// 					} else {
+// 						console.log(`ℹ️ Referrer hali obuna bo'lmagan, faqat refBy ni saqlaymiz`)
+// 						// Faqat refBy ni saqlaymiz, keyin obuna bo'lganda bonus beriladi
+// 						user.refBy = parseInt(startParam)
+// 						await user.save()
+// 					}
+// 				} else {
+// 					console.log(`⚠️ Referrer topilmadi: ${startParam}`)
+// 					// Referrer topilmasa ham, refBy ni saqlaymiz
+// 					if (startParam && !isNaN(parseInt(startParam))) {
+// 						user.refBy = parseInt(startParam)
+// 						await user.save()
+// 					}
+// 				}
+// 			}
+// 		} else {
+// 			// Mavjud foydalanuvchi
+// 			user.lastActive = new Date()
+// 			await user.save()
+
+// 			console.log(`ℹ️ Mavjud foydalanuvchi: ${chatId}`)
+// 		}
+
+// 		// OBUNA HOLATINI TEKSHIRISH
+// 		console.log(`🔍 Obuna tekshirish boshlanmoqda: ${chatId}`)
+// 		await handleCheckSubscription(chatId)
+// 		try {
+// 			await showActiveContestWithReferral(chatId)
+// 		} catch (error) {
+// 			console.error('❌ Start command xatosi:', error)
+// 			try {
+// 				await bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+// 			} catch (err) {
+// 				console.log('⚠️ Xabar yuborishda xato:', err.message)
+// 			}
+// 		}
+// 	} catch (error) {
+// 		console.log(error)
+// 	}
+// }
+
+// ==================== O'ZGARTIRILGAN handleStart FUNKSIYASI ====================
+
 const handleStart = async (chatId, startParam = null) => {
 	try {
 		console.log(`🚀 Start command: chatId=${chatId}, param=${startParam}`)
@@ -228,21 +358,368 @@ const handleStart = async (chatId, startParam = null) => {
 			console.log(`ℹ️ Mavjud foydalanuvchi: ${chatId}`)
 		}
 
-		// OBUNA HOLATINI TEKSHIRISH
+		// FAQAT OBUNA HOLATINI TEKSHIRISH
 		console.log(`🔍 Obuna tekshirish boshlanmoqda: ${chatId}`)
 		await handleCheckSubscription(chatId)
+		// Konkursni shu yerda ko'rsatmaymiz, u showMainMenu ichida ko'rsatiladi
+		
+	} catch (error) {
+		console.error('❌ Start command xatosi:', error)
 		try {
-			await showActiveContestWithReferral(chatId)
-		} catch (error) {
-			console.error('❌ Start command xatosi:', error)
-			try {
-				await bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
-			} catch (err) {
-				console.log('⚠️ Xabar yuborishda xato:', err.message)
+			await bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+		} catch (err) {
+			console.log('⚠️ Xabar yuborishda xato:', err.message)
+		}
+	}
+}
+
+// ==================== DO'STLARGA ULASHISH FUNKSIYALARI ====================
+
+// 1. Konkurs postini tanlangan chatga yuborish
+const sendContestToChat = async (senderChatId, targetChatId) => {
+	try {
+		console.log(`📤 Konkurs postini yuborish: ${senderChatId} -> ${targetChatId}`)
+
+		// 1. Birinchi faol konkursni topish
+		const activeContest = await Contest.findOne({
+			isActive: true,
+			startDate: { $lte: new Date() },
+			endDate: { $gte: new Date() }
+		})
+			.sort({ createdAt: -1 })
+			.limit(1)
+
+		if (!activeContest) {
+			console.log('❌ Faol konkurs topilmadi')
+			await bot.sendMessage(senderChatId, '❌ Hozirda faol konkurs mavjud emas.')
+			return null
+		}
+
+		console.log(`✅ Faol konkurs topildi: ${activeContest.name}`)
+
+		// 2. User ma'lumotlarini olish
+		const senderUser = await User.findOne({ chatId: senderChatId })
+		if (!senderUser) {
+			console.log('❌ Foydalanuvchi topilmadi')
+			return null
+		}
+
+		// 3. Postni tayyorlash
+		const contestName = activeContest.name || 'Konkurs'
+		const contestDescription = activeContest.description || 'Konkurs tavsifi mavjud emas'
+		const contestReward = activeContest.reward || activeContest.rewardPoints || 0
+		const contestWinners = activeContest.winnerCount || activeContest.winnersCount || 1
+
+		// Qisqa tavsif
+		let shortDescription = contestDescription
+		if (shortDescription.length > 300) {
+			shortDescription = shortDescription.substring(0, 300) + '...'
+		}
+
+		// Post matni
+		const postMessage = `
+🎯 <b>${contestName}</b>
+
+${shortDescription}
+
+💰 <b>Mukofot:</b> ${contestReward} ball
+👑 <b>G'oliblar soni:</b> ${contestWinners} ta
+📅 <b>Tugash sanasi:</b> ${formatDate(activeContest.endDate)}
+        `
+
+		// 4. Inline keyboard yaratish
+		const inlineKeyboard = {
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{
+							text: '✅ Qatnashish',
+							callback_data: `join_contest_${activeContest._id}_${senderChatId}`
+						}
+					]
+				]
 			}
 		}
+
+		// 5. Xabarni yuborish
+		let sentMessage
+		if (activeContest.image) {
+			// Rasm bilan yuborish
+			sentMessage = await bot.sendPhoto(targetChatId, activeContest.image, {
+				caption: postMessage,
+				parse_mode: 'HTML',
+				reply_markup: inlineKeyboard.reply_markup
+			})
+			console.log(`✅ Rasmli konkurs posti yuborildi: ${targetChatId}`)
+		} else {
+			// Faqat matn bilan yuborish
+			sentMessage = await bot.sendMessage(targetChatId, postMessage, {
+				parse_mode: 'HTML',
+				reply_markup: inlineKeyboard.reply_markup
+			})
+			console.log(`✅ Matnli konkurs posti yuborildi: ${targetChatId}`)
+		}
+
+		// 6. Referal ma'lumotini saqlash
+		if (!activeContest.referralMessages) {
+			activeContest.referralMessages = []
+		}
+
+		activeContest.referralMessages.push({
+			messageId: sentMessage.message_id,
+			chatId: targetChatId,
+			senderId: senderChatId,
+			sentAt: new Date()
+		})
+
+		await activeContest.save()
+
+		// 7. Foydalanuvchiga tasdiqlash xabarini yuborish
+		await bot.sendMessage(
+			senderChatId,
+			`✅ Konkurs posti muvaffaqiyatli yuborildi!\n\n` +
+				`🎯 <b>${contestName}</b>\n` +
+				`👥 G'oliblar soni: ${contestWinners} ta\n` +
+				`💰 Mukofot: ${contestReward} ball\n` +
+				`📅 Tugash: ${formatDate(activeContest.endDate)}\n\n` +
+				`Do'stlaringiz "✅ Qatnashish" tugmasini bosishlari mumkin!`,
+			{ parse_mode: 'HTML' }
+		)
+
+		return sentMessage
 	} catch (error) {
-		console.log(error)
+		console.error('❌ Konkurs postini yuborish xatosi:', error)
+		await bot.sendMessage(senderChatId, '❌ Konkurs postini yuborishda xatolik yuz berdi.')
+		return null
+	}
+}
+
+// 2. "Do'stlarga ulashish" tugmasi uchun handler
+const handleShareToFriends = async chatId => {
+	try {
+		console.log(`🔗 Do'stlarga ulashish boshlanmoqda: ${chatId}`)
+
+		// 1. Faol konkursni tekshirish
+		const activeContest = await Contest.findOne({
+			isActive: true,
+			startDate: { $lte: new Date() },
+			endDate: { $gte: new Date() }
+		})
+
+		if (!activeContest) {
+			await bot.sendMessage(
+				chatId,
+				'❌ Hozirda faol konkurs mavjud emas.\n\n' +
+					"Iltimos, keyinroq qayta urinib ko'ring yoki boshqa konkurslar e'lon qilinishini kuting."
+			)
+			return
+		}
+
+		// 2. Ulashish uchun yo'riqnoma yuborish
+		const guideMessage = `
+📤 <b>Konkursni do'stlarga ulashish</b>
+
+1. Quyidagi "📤 Do'stlarga ulashish" tugmasini bosing
+2. Konkurs postini yubormoqchi bo'lgan guruh yoki shaxsiy chatni tanlang
+3. Yuborish tugmasini bosing
+
+❗ <b>Eslatma:</b> Postni faqat bitta chatga yubora olasiz. Agar boshqa chatga yubormoqchi bo'lsangiz, qaytadan ushbu tugmani bosing.
+        `
+
+		const inlineKeyboard = {
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{
+							text: "📤 Do'stlarga ulashish",
+							switch_inline_query_current_chat: 'share_contest'
+						}
+					],
+					[
+						{
+							text: '◀️ Orqaga',
+							callback_data: 'main_menu'
+						}
+					]
+				]
+			}
+		}
+
+		await bot.sendMessage(chatId, guideMessage, {
+			parse_mode: 'HTML',
+			reply_markup: inlineKeyboard.reply_markup
+		})
+	} catch (error) {
+		console.error("❌ Do'stlarga ulashish xatosi:", error)
+		await bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring.")
+	}
+}
+
+// 3. Inline query handler
+const handleInlineQuery = async inlineQuery => {
+	try {
+		const userId = inlineQuery.from.id
+		const query = inlineQuery.query
+
+		console.log(`🔍 Inline query: ${userId}, query: ${query}`)
+
+		if (query === 'share_contest' || query.includes('konkurs')) {
+			// 1. Faol konkursni topish
+			const activeContest = await Contest.findOne({
+				isActive: true,
+				startDate: { $lte: new Date() },
+				endDate: { $gte: new Date() }
+			})
+
+			if (!activeContest) {
+				await bot.answerInlineQuery(inlineQuery.id, [], {
+					switch_pm_text: '❌ Faol konkurs topilmadi',
+					switch_pm_parameter: 'no_contest',
+					cache_time: 1
+				})
+				return
+			}
+
+			// 2. Foydalanuvchi ma'lumotlari
+			const user = await User.findOne({ chatId: userId })
+			if (!user) {
+				await bot.answerInlineQuery(inlineQuery.id, [], {
+					switch_pm_text: '❌ Foydalanuvchi topilmadi',
+					switch_pm_parameter: 'no_user',
+					cache_time: 1
+				})
+				return
+			}
+
+			// 3. Konkurs postini tayyorlash
+			const contestName = activeContest.name || 'Konkurs'
+			const contestDescription = activeContest.description || 'Konkurs tavsifi mavjud emas'
+			const contestReward = activeContest.reward || activeContest.rewardPoints || 0
+			const contestWinners = activeContest.winnerCount || activeContest.winnersCount || 1
+
+			// Qisqa tavsif
+			let shortDescription = contestDescription
+			if (shortDescription.length > 200) {
+				shortDescription = shortDescription.substring(0, 200) + '...'
+			}
+
+			// Inline query natijasi
+			const results = [
+				{
+					type: 'article',
+					id: 'contest_share_1',
+					title: `🎯 ${contestName}`,
+					description: "Do'stlaringizga konkursni ulashing",
+					thumb_url: activeContest.image || 'https://via.placeholder.com/100',
+					input_message_content: {
+						message_text: `
+🎯 <b>${contestName}</b>
+
+${shortDescription}
+
+💰 <b>Mukofot:</b> ${contestReward} ball
+👑 <b>G'oliblar soni:</b> ${contestWinners} ta
+📅 <b>Tugash sanasi:</b> ${formatDate(activeContest.endDate)}
+                    `,
+						parse_mode: 'HTML'
+					},
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: '✅ Qatnashish',
+									callback_data: `join_contest_${activeContest._id}_${userId}`
+								}
+							]
+						]
+					}
+				}
+			]
+
+			await bot.answerInlineQuery(inlineQuery.id, results, {
+				cache_time: 0,
+				is_personal: true
+			})
+
+			console.log(`✅ Inline query natijasi yuborildi: ${userId}`)
+		}
+	} catch (error) {
+		console.error('❌ Inline query xatosi:', error)
+	}
+}
+
+// 4. Konkursga qo'shilish handler
+const handleJoinContest = async (chatId, contestId, referrerId) => {
+	try {
+		console.log(
+			`🎯 Konkursga qo'shilish: ${chatId}, contest: ${contestId}, referrer: ${referrerId}`
+		)
+
+		// 1. Konkursni tekshirish
+		const contest = await Contest.findById(contestId)
+		if (!contest) {
+			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+			return
+		}
+
+		// 2. Foydalanuvchi mavjudligini tekshirish
+		let user = await User.findOne({ chatId })
+		const isNewUser = !user
+
+		if (isNewUser) {
+			// Yangi foydalanuvchi yaratish
+			user = new User({
+				chatId: chatId,
+				username: "Noma'lum",
+				fullName: 'Foydalanuvchi',
+				joinDate: new Date(),
+				isSubscribed: false,
+				referrals: 0,
+				points: 0,
+				lastActive: new Date(),
+				isAdmin: false,
+				referredUsers: [],
+				// Referal ma'lumotlarini saqlash
+				refBy: parseInt(referrerId) || null
+			})
+			await user.save()
+			console.log(`✅ Yangi foydalanuvchi yaratildi: ${chatId}`)
+		}
+
+		// 3. Agar referrer bo'lsa, referal tizimini ishga tushirish
+		if (referrerId && referrerId !== chatId.toString()) {
+			await processReferral(referrerId, user)
+		}
+
+		// 4. Konkursga qo'shilish
+		if (!contest.participants.includes(chatId)) {
+			contest.participants.push(chatId)
+			await contest.save()
+			console.log(`✅ ${chatId} konkursga qo'shildi`)
+		}
+
+		// 5. Xabar yuborish
+		const successMessage = isNewUser
+			? `✅ Tabriklaymiz! Siz muvaffaqiyatli ro'yxatdan o'tdingiz va "${contest.name}" konkursiga qo'shildingiz!`
+			: `✅ Siz "${contest.name}" konkursiga muvaffaqiyatli qo'shildingiz!`
+
+		const inlineKeyboard = {
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{
+							text: '🏠 Asosiy menyu',
+							callback_data: 'main_menu'
+						}
+					]
+				]
+			}
+		}
+
+		await bot.sendMessage(chatId, successMessage, inlineKeyboard)
+	} catch (error) {
+		console.error("❌ Konkursga qo'shilish xatosi:", error)
+		await bot.sendMessage(chatId, "❌ Konkursga qo'shilishda xatolik yuz berdi.")
 	}
 }
 
@@ -853,46 +1330,46 @@ const showLeaderboardAsTable = async chatId => {
 
 // ==================== KUNLIK BONUS ====================
 
-const handleDailyBonus = async chatId => {
-	try {
-		const user = await User.findOne({ chatId })
+// const handleDailyBonus = async chatId => {
+// 	try {
+// 		const user = await User.findOne({ chatId })
 
-		if (!user) {
-			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-			return
-		}
+// 		if (!user) {
+// 			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+// 			return
+// 		}
 
-		const today = new Date()
-		today.setHours(0, 0, 0, 0)
+// 		const today = new Date()
+// 		today.setHours(0, 0, 0, 0)
 
-		if (user.dailyBonusClaimed && user.lastBonusDate >= today) {
-			await bot.sendMessage(
-				chatId,
-				`❌ Siz bugun kunlik bonusni olgansiz!\n\n` + `🕐 Keyingi bonus: Ertaga ertalab`,
-				backKeyboard
-			)
-			return
-		}
+// 		if (user.dailyBonusClaimed && user.lastBonusDate >= today) {
+// 			await bot.sendMessage(
+// 				chatId,
+// 				`❌ Siz bugun kunlik bonusni olgansiz!\n\n` + `🕐 Keyingi bonus: Ertaga ertalab`,
+// 				backKeyboard
+// 			)
+// 			return
+// 		}
 
-		const bonusPoints = parseInt(process.env.DAILY_BONUS_POINTS) || 5
-		user.points += bonusPoints
-		user.dailyBonusClaimed = true
-		user.lastBonusDate = new Date()
-		await user.save()
+// 		const bonusPoints = parseInt(process.env.DAILY_BONUS_POINTS) || 5
+// 		user.points += bonusPoints
+// 		user.dailyBonusClaimed = true
+// 		user.lastBonusDate = new Date()
+// 		await user.save()
 
-		await bot.sendMessage(
-			chatId,
-			`🎉 Kunlik bonus!\n\n` +
-				`💰 Siz ${bonusPoints} ball qoʻlga kiritdingiz!\n` +
-				`📊 Jami ball: ${user.points}\n\n` +
-				`📅 Keyingi bonus: Ertaga`,
-			backKeyboard
-		)
-	} catch (error) {
-		console.error('❌ Kunlik bonus xatosi:', error)
-		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
-	}
-}
+// 		await bot.sendMessage(
+// 			chatId,
+// 			`🎉 Kunlik bonus!\n\n` +
+// 				`💰 Siz ${bonusPoints} ball qoʻlga kiritdingiz!\n` +
+// 				`📊 Jami ball: ${user.points}\n\n` +
+// 				`📅 Keyingi bonus: Ertaga`,
+// 			backKeyboard
+// 		)
+// 	} catch (error) {
+// 		console.error('❌ Kunlik bonus xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+// 	}
+// }
 
 // ==================== YORDAM ====================
 
@@ -1122,22 +1599,22 @@ const showUserStatsAsTable = async chatId => {
 		message += '├──────────────────────────────────────┤\n'
 		message += '│            FAOLIYAT                  │\n'
 		message += '├──────────────────────────────────────┤\n'
-		message += `│ Qo'shilgan: ${
-			(new Date(user.joinDate)`,
+		message += `│ Qo'shilgan: ${new Date(user.joinDate)
 			.toLocaleDateString('uz-UZ')
-			.replace(/\//g, '.')}${' '.repeat(13)}│\n`,
-			(message += `│ Obuna: ${user.isSubscribed ? '✅' : '❌'}${' '.repeat(26)}│\n`),
-			(message += `└──────────────────────────────────────┘</code>\n\n`),
-			(message += `<b>Detal statistik:</b>\n`),
-			(message += `• Har bir taklif: 10 ball\n`),
-			(message += `• Do'stlaringizning balli: ${user.referredUsers.reduce(
-				(sum, f) => sum + f.points,
-				0
-			)}\n`),
-			(message += `• O'rtacha ball: ${
-				user.points > 0 ? Math.round(user.points / (user.referredUsers.length || 1)) : 0
-			}\n`))
-		}`
+			.replace(/\//g, '.')}${' '.repeat(13)}│\n`
+		message += `│ Obuna: ${user.isSubscribed ? '✅' : '❌'}${' '.repeat(26)}│\n`
+		message += `└──────────────────────────────────────┘</code>\n\n`
+
+		message += `<b>Detal statistik:</b>\n`
+		message += `• Har bir taklif: 10 ball\n`
+		message += `• Do'stlaringizning balli: ${user.referredUsers.reduce(
+			(sum, f) => sum + f.points,
+			0
+		)}\n`
+		message += `• O'rtacha ball: ${
+			user.points > 0 ? Math.round(user.points / (user.referredUsers.length || 1)) : 0
+		}\n`
+
 		const inline_keyboard = [
 			[
 				{ text: "👥 Do'stlar ro'yxati", callback_data: 'show_referred_friends' },
@@ -1243,6 +1720,60 @@ const checkAllChannelSubscriptions = async chatId => {
 	}
 }
 
+// const showMainMenu = async chatId => {
+// 	try {
+// 		console.log(`🏠 Asosiy menyu ko'rsatilmoqda: ${chatId}`)
+
+// 		const user = await User.findOne({ chatId })
+// 		if (!user) {
+// 			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi. /start bosing.')
+// 			return
+// 		}
+
+// 		// Agar foydalanuvchi obuna bo'lmagan bo'lsa
+// 		if (!user.isSubscribed) {
+// 			await showChannelsForSubscriptionWithStatus(chatId)
+// 			return
+// 		}
+
+// 		// O'ZINGIZNING STATISTIKANGIZ
+// 		const totalUsers = await User.countDocuments()
+// 		const userRank = (await User.countDocuments({ points: { $gt: user.points } })) + 1
+
+// 		// Asosiy menyu matni
+// 		const message = `
+// 👋 <b>Assalomu alaykum, ${user.fullName}!</b>
+
+// ⭐️ <b>Sizning ballaringiz:</b> ${user.points || 0}
+// 🏆 <b>Reytingdagi o'rningiz:</b> ${userRank}/${totalUsers}
+// 👥 <b>Taklif qilganlar:</b> ${user.referrals || 0} ta
+
+// <b>Quyidagi bo'limlardan birini tanlang:</b>
+// `
+
+// 		// Reply keyboard yaratish (inline emas)
+// 		const replyKeyboard = {
+// 			keyboard: [
+// 				['📊 Statistika', '🎯 Konkurslar'],
+// 				["👥 Do'stlarga ulashish", '🏆 Reyting'],
+// 				["👥 Do'stlarni taklif qilish", 'ℹ️ Yordam'],
+// 				['⭐️ Kunlik bonus']
+// 			],
+// 			resize_keyboard: true,
+// 			one_time_keyboard: false
+// 		}
+
+// 		// Bot orqali reply keyboard bilan xabar yuborish
+// 		await bot.sendMessage(chatId, message, {
+// 			parse_mode: 'HTML',
+// 			reply_markup: replyKeyboard
+// 		})
+
+// 		console.log(`✅ Asosiy menyu ko'rsatildi: ${chatId}`)
+// 	} catch (error) {
+// 		console.error('❌ Asosiy menyuni koʻrsatish xatosi:', error)
+// 	}
+// }
 const showMainMenu = async chatId => {
 	try {
 		console.log(`🏠 Asosiy menyu ko'rsatilmoqda: ${chatId}`)
@@ -1296,6 +1827,7 @@ const showMainMenu = async chatId => {
 		console.error('❌ Asosiy menyuni koʻrsatish xatosi:', error)
 	}
 }
+
 // ==================== FOYDALANUVCHI STATISTIKASI ====================
 
 const showUserStats = async chatId => {
@@ -1385,145 +1917,6 @@ const showUserStats = async chatId => {
 	}
 }
 
-// const showActiveContestWithReferral = async chatId => {
-// 	  const contest = await Contest.findOne({ isActive: true })
-// 		const user = await User.findOne({ chatId })
-// 	try {
-// 		console.log(`🎯 Faol konkursni ko'rsatish: ${chatId}`)
-
-// 		// 1. Faol konkursni topish - yangi query
-// 		const activeContest = await Contest.findOne({
-// 			isActive: true,
-// 			startDate: { $lte: new Date() },
-// 			endDate: { $gte: new Date() }
-// 		})
-// 			.sort({ createdAt: -1 })
-// 			.limit(1)
-
-// 		console.log(`📊 Topilgan konkurs:`, activeContest)
-
-// 		// 2. User ma'lumotlarini olish
-// 		const user = await User.findOne({ chatId })
-// 		if (!user) {
-// 			console.log('❌ Foydalanuvchi topilmadi')
-// 			return
-// 		}
-
-// 		// 3. Referal link yaratish
-// 		const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`
-
-// 		// 4. Xabar tayyorlash
-// 		let message = ''
-// 		let image = null
-
-// 		if (activeContest) {
-// 			// Agar maydonlar undefined bo'lsa, default qiymatlar beramiz
-// 			const contestName = activeContest.name || 'Konkurs'
-// 			const contestDescription = activeContest.description || 'Konkurs tavsifi mavjud emas'
-// 			const contestReward = activeContest.reward || activeContest.rewardPoints || 0
-// 			const contestWinners = activeContest.winnerCount || activeContest.winnersCount || 1
-// 			const contestParticipants = activeContest.participants ? activeContest.participants.length : 0
-
-// 			// Tavsifni qisqartirish
-// 			let shortDescription = contestDescription
-// 			if (shortDescription.length > 300) {
-// 				shortDescription = shortDescription.substring(0, 300) + '...'
-// 			}
-
-// 			message =
-// 				`<b>${contestName}</b>\n\n` +
-// 				`${shortDescription}\n\n` +
-// 				`💰 <b>Mukofot:</b> ${contestReward} ball\n` +
-// 				`👑 <b>G'oliblar soni:</b> ${contestWinners} ta\n` +
-// 				`📅 <b>Boshlanish:</b> ${formatDate(activeContest.startDate)}\n` +
-// 				`⏳ <b>Tugash:</b> ${formatDate(activeContest.endDate)}\n` +
-// 				`👥 <b>Qatnashuvchilar:</b> ${contestParticipants} ta`
-
-// 			image = activeContest.image
-
-// 			console.log(`✅ Konkurs ma'lumotlari:`, {
-// 				name: contestName,
-// 				reward: contestReward,
-// 				winners: contestWinners,
-// 				participants: contestParticipants
-// 			})
-// 		} else {
-// 			message =
-// 				`<b>Aktiv konkurslar</b>\n\n` +
-// 				`Hozirda faol konkurslar mavjud emas.\n\n` +
-// 				`<b>Eslatma:</b> Yangi konkurslar e'lon qilinishini kuting yoki do'stlaringizni taklif qiling!`
-
-// 			console.log('ℹ️ Faol konkurs topilmadi')
-// 		}
-
-// 		// 5. Keyboard tayyorlash
-// 		const keyboard = {
-// 			reply_markup: {
-// 				inline_keyboard: []
-// 			}
-// 		}
-
-// 		// Agar faol konkurs bo'lsa, konkursga qatnashish tugmasi
-// 		if (activeContest) {
-
-// 		// 			text: '🎯 Konkursga qatnashish',
-// 		// 			callback_data: `contest_join_${activeContest._id}`
-// 		// 		}
-// 		// 	])
-
-// 		// 	// Batafsil tugmasi
-// 		// 	keyboard.reply_markup.inline_keyboard.push([
-// 		// 		{
-// 		// 			text: "📋 Batafsil ma'lumot",
-// 		// 			callback_data: `user_contest_${activeContest._id}`
-// 		// 		}
-// 		// 	])
-// 		// }
-
-// 		// DO'STLARGA ULASHISH TUGMASI
-// 		keyboard.reply_markup.inline_keyboard.push([
-// 			{
-// 				text: "🔗 Do'stlarga ulashish",
-// 				switch_inline_query: `Menga qo'shiling va ${process.env.REFERRAL_BONUS || 10} ball oling!`
-// 			}
-// 		])
-
-// 		// Asosiy menyuga qaytish tugmasi
-// 		keyboard.reply_markup.inline_keyboard.push([
-// 			{
-// 				text: '🏠 Asosiy menyu',
-// 				callback_data: 'main_menu'
-// 			}
-// 		])
-
-// 		// 6. Xabarni yuborish
-// 		const MAX_CAPTION_LENGTH = 900
-
-// 		if (message.length > MAX_CAPTION_LENGTH) {
-// 			message = message.substring(0, MAX_CAPTION_LENGTH) + '...'
-// 		}
-
-// 		if (activeContest && image) {
-// 			// Rasm bilan xabar yuborish
-// 			await bot.sendPhoto(chatId, image, {
-// 				caption: message,
-// 				parse_mode: 'HTML',
-// 				reply_markup: keyboard.reply_markup
-// 			})
-// 		} else {
-// 			// Faqat matn bilan xabar yuborish
-// 			await bot.sendMessage(chatId, message, {
-// 				parse_mode: 'HTML',
-// 				reply_markup: keyboard.reply_markup
-// 			})
-// 		}
-// 	}
-// 		console.log(`✅ Faol konkurs va referal link ko'rsatildi: ${chatId}`)
-// 	} catch (error) {
-// 		console.error("❌ Faol konkurs ko'rsatish xatosi:", error)
-// 	}
-// }
-
 const showActiveContestWithReferral = async chatId => {
 	try {
 		console.log(`🎯 Faol konkursni ko'rsatish: ${chatId}`)
@@ -1600,78 +1993,13 @@ const showActiveContestWithReferral = async chatId => {
 			}
 		}
 
-		// Agar faol konkurs bo'lsa, konkursga qatnashish tugmasi
+		// Agar faol konkurs bo'lsa
 		if (activeContest) {
-			
-			// ✅ O'ZGARTIRISH: DO'STLARGA ULASHISH TUGMASI
-			// Konkurs ma'lumotlari bilan to'liq post yuborish
-			const contestName = activeContest.name || 'Konkurs'
-			const contestReward = activeContest.reward || activeContest.rewardPoints || 0
-
-			// Telegram Share tizimi uchun to'liq post yaratish
-			// Ikkita usulni taklif qilamiz:
-
-			// 1-USUL: Agar Telegram rasmli linkni qo'llab-quvvatlasa
-			if (activeContest.image) {
-				// Rasm URL sini olish
-				const imageUrl = activeContest.image
-
-				// To'liq taklif posti
-				const shareText =
-					`🎉 <b>${contestName}</b> konkursida qatnashing!\n\n` +
-					`💰 Mukofot: ${contestReward} ball\n` +
-					`📅 Tugash muddati: ${formatDate(activeContest.endDate)}\n\n` +
-					`${referralLink}`
-
-				// HTML teglarni olib tashlash (Telegram uchun)
-				const plainText = shareText
-					.replace(/<b>/g, '')
-					.replace(/<\/b>/g, '')
-					.replace(/<i>/g, '')
-					.replace(/<\/i>/g, '')
-					.replace(/<code>/g, '')
-					.replace(/<\/code>/g, '')
-					.replace(/<pre>/g, '')
-					.replace(/<\/pre>/g, '')
-
-				// Telegram share URL (rasm va matn bilan)
-				const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(
-					referralLink
-				)}&text=${encodeURIComponent(plainText)}`
-
-				keyboard.reply_markup.inline_keyboard.push([
-					{
-						text: "🔗 Do'stlarga ulashish",
-						url: shareUrl
-					}
-				])
-			} else {
-				// Agar rasm bo'lmasa
-				const shareText = `🎉 ${contestName} konkursida qatnashing! ${referralLink}`
-				const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}`
-
-				keyboard.reply_markup.inline_keyboard.push([
-					{
-						text: "🔗 Do'stlarga ulashish",
-						url: shareUrl
-					}
-				])
-			}
-
-			// ✅ QO'SHIMCHA: FORWARD QILISH UCHUN TAYYOR POST
-			// Foydalanuvchi bu postni forward qilishi mumkin
-			
-		} else {
-			// Agar konkurs bo'lmasa, oddiy taklif tugmasi
-			const shareText = `Men sizni ${process.env.BOT_NAME || 'bot'} ga taklif qilaman!`
-			const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(
-				referralLink
-			)}&text=${encodeURIComponent(shareText)}`
-
+			// Do'stlarga ulashish tugmasi
 			keyboard.reply_markup.inline_keyboard.push([
 				{
-					text: "🔗 Do'stlarni taklif qilish",
-					url: shareUrl
+					text: "📤 Do'stlarga ulashish",
+					callback_data: 'share_to_friends'
 				}
 			])
 		}
@@ -1754,7 +2082,6 @@ const shareContest = async (chatId, contestId) => {
 			`👑 <b>G'oliblar soni:</b> ${contestWinners} ta\n` +
 			`📅 <b>Boshlanish:</b> ${formatDate(contest.startDate)}\n` +
 			`⏳ <b>Tugash:</b> ${formatDate(contest.endDate)}\n\n` +
-			`🔗 <b>Qo'shilish uchun:</b> ${referralLink}\n\n` +
 			`👇 Quyidagi tugma orqali konkursga qo'shiling`
 
 		// Ulashish uchun keyboard
@@ -1764,7 +2091,7 @@ const shareContest = async (chatId, contestId) => {
 					[
 						{
 							text: "🎯 Konkursga qo'shilish",
-							url: referralLink
+							callback_data: `join_contest_${contest._id}_${chatId}`
 						}
 					]
 				]
@@ -1778,8 +2105,7 @@ const shareContest = async (chatId, contestId) => {
 				`Endi bu xabarni do'stlaringizga <b>forward</b> qilishingiz mumkin:\n\n` +
 				`1. Ushbu xabarni bosing\n` +
 				`2. "Forward" tugmasini bosing\n` +
-				`3. Do'stlaringizni tanlang\n\n` +
-				`Yoki quyidagi tugma orqali ulashing:`,
+				`3. Do'stlaringizni tanlang`,
 			{ parse_mode: 'HTML' }
 		)
 
@@ -1813,165 +2139,869 @@ function formatDate(date) {
 		.padStart(2, '0')}.${d.getFullYear()}`
 }
 
+// ==================== YANGILANGAN CALLBACK HANDLER ====================
 
-// ==================== CALLBACK HANDLER ====================
+// const handleCallback = async (chatId, callbackData) => {
+// 	try {
+// 		console.log(`📞 Callback data: ${callbackData}, chatId: ${chatId}`)
+
+// 		// "Do'stlarga ulashish" callback'i
+// 		if (callbackData === 'share_to_friends') {
+// 			await handleShareToFriends(chatId)
+// 			return
+// 		}
+
+// 		// Konkursga qo'shilish callback'i
+// 		if (callbackData.startsWith('join_contest_')) {
+// 			const parts = callbackData.split('_')
+// 			if (parts.length >= 4) {
+// 				// join_contest_<contestId>_<referrerId>
+// 				const contestId = parts[2]
+// 				const referrerId = parts[3]
+// 				await handleJoinContest(chatId, contestId, referrerId)
+// 			}
+// 			return
+// 		}
+
+// 		// Konkurs postini yaratish callback'ini qayta ishlash
+// 		if (callbackData.startsWith('create_share_')) {
+// 			const contestId = callbackData.replace('create_share_', '')
+// 			console.log(`🎯 Konkurs postini yaratish: contestId=${contestId}`)
+
+// 			const contest = await Contest.findById(contestId)
+// 			if (!contest) {
+// 				await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+// 				return
+// 			}
+
+// 			const user = await User.findOne({ chatId })
+// 			if (!user) {
+// 				await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+// 				return
+// 			}
+
+// 			// Referal link yaratish
+// 			const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`
+
+// 			// Ulashish uchun xabar tayyorlash
+// 			let shareMessage = ''
+// 			let image = contest.image
+
+// 			const contestName = contest.name || 'Konkurs'
+// 			const contestDescription = contest.description || 'Konkurs tavsifi mavjud emas'
+// 			const contestReward = contest.reward || contest.rewardPoints || 0
+// 			const contestWinners = contest.winnerCount || contest.winnersCount || 1
+
+// 			// Tavsifni qisqartirish
+// 			let shortDescription = contestDescription
+// 			if (shortDescription.length > 200) {
+// 				shortDescription = shortDescription.substring(0, 200) + '...'
+// 			}
+
+// 			// ✅ KONKURS POSTI: Rasm tagida konkurs + referal link
+// 			shareMessage =
+// 				`🎯 <b>${contestName}</b>\n\n` +
+// 				`${shortDescription}\n\n` +
+// 				`💰 <b>Mukofot:</b> ${contestReward} ball\n` +
+// 				`👑 <b>G'oliblar soni:</b> ${contestWinners} ta\n` +
+// 				`📅 <b>Boshlanish:</b> ${formatDate(contest.startDate)}\n` +
+// 				`⏳ <b>Tugash:</b> ${formatDate(contest.endDate)}\n\n` +
+// 				`👇 Quyidagi tugma orqali konkursga qo'shiling`
+
+// 			// Ulashish uchun keyboard
+// 			const shareKeyboard = {
+// 				reply_markup: {
+// 					inline_keyboard: [
+// 						[
+// 							{
+// 								text: '✅ Qatnashish',
+// 								callback_data: `join_contest_${contest._id}_${chatId}`
+// 							}
+// 						]
+// 					]
+// 				}
+// 			}
+
+// 			// Foydalanuvchiga xabar yuborish
+// 			await bot.sendMessage(
+// 				chatId,
+// 				`✅ <b>Konkurs posti tayyor!</b>\n\n` +
+// 					`Endi bu xabarni do'stlaringizga <b>forward</b> qilishingiz mumkin:\n\n` +
+// 					`1. Quyidagi xabarni bosing\n` +
+// 					`2. "Forward" tugmasini bosing\n` +
+// 					`3. Do'stlaringizni tanlang`,
+// 				{ parse_mode: 'HTML' }
+// 			)
+
+// 			// Konkurs postini yuborish (rasm bilan)
+// 			if (image) {
+// 				await bot.sendPhoto(chatId, image, {
+// 					caption: shareMessage,
+// 					parse_mode: 'HTML',
+// 					reply_markup: shareKeyboard.reply_markup
+// 				})
+// 			} else {
+// 				await bot.sendMessage(chatId, shareMessage, {
+// 					parse_mode: 'HTML',
+// 					reply_markup: shareKeyboard.reply_markup
+// 				})
+// 			}
+
+// 			console.log(`✅ Konkurs posti yaratildi: ${chatId}`)
+// 			return
+// 		}
+
+// 		// Boshqa callback'larni qayta ishlash
+// 		switch (callbackData) {
+// 			case 'main_menu':
+// 				await showMainMenu(chatId)
+// 				break
+// 			case 'show_stats':
+// 				await showUserStats(chatId)
+// 				break
+// 			case 'show_referral':
+// 				await showReferralInfo(chatId)
+// 				break
+// 			case 'show_referred_friends':
+// 				await showReferredFriends(chatId)
+// 				break
+// 			case 'leaderboard':
+// 				await showLeaderboardAsTable(chatId)
+// 				break
+// 			case 'daily_bonus':
+// 				await handleDailyBonus(chatId)
+// 				break
+// 			case 'show_help':
+// 				await showHelp(chatId)
+// 				break
+// 			case 'list_contests_user':
+// 				await showActiveContestWithReferral(chatId)
+// 				break
+// 			case 'confirm_subscription':
+// 				await handleConfirmSubscription(chatId)
+// 				break
+// 			case 'check_subscription':
+// 				await handleCheckSubscription(chatId)
+// 				break
+// 			case 'refresh_leaderboard':
+// 				await showLeaderboardAsTable(chatId)
+// 				break
+// 			case 'refresh_friends':
+// 				await showReferredFriends(chatId)
+// 				break
+// 			default:
+// 				// Konkursga qatnashish callback'i
+// 				if (callbackData.startsWith('contest_join_')) {
+// 					const contestId = callbackData.replace('contest_join_', '')
+// 					await bot.sendMessage(
+// 						chatId,
+// 						`✅ "Konkursga qatnashish" tugmasi bosildi!\nKonkurs ID: ${contestId}`
+// 					)
+// 				}
+// 				// Konkurs batafsil ma'lumot callback'i
+// 				else if (callbackData.startsWith('user_contest_')) {
+// 					const contestId = callbackData.replace('user_contest_', '')
+// 					await bot.sendMessage(
+// 						chatId,
+// 						`📋 "Batafsil ma'lumot" tugmasi bosildi!\nKonkurs ID: ${contestId}`
+// 					)
+// 				}
+// 				// Do'stlar sahifasi callback'i
+// 				else if (callbackData.startsWith('friends_page_')) {
+// 					const page = parseInt(callbackData.replace('friends_page_', ''))
+// 					await showReferredFriendsAsTable(chatId, page)
+// 				} else {
+// 					console.log(`👤 User noma'lum callback: ${callbackData}`)
+// 					await bot.sendMessage(chatId, "❌ Noma'lum amal.")
+// 				}
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ Callback qayta ishlash xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
+// 	}
+// }
+
+// ==================== YANGILANGAN CALLBACK HANDLER ====================
+
+// const handleCallback = async (chatId, callbackData) => {
+// 	try {
+// 		console.log(`📞 Callback data: ${callbackData}, chatId: ${chatId}`)
+
+// 		// "Do'stlarga ulashish" callback'i
+// 		if (callbackData === 'share_to_friends') {
+// 			console.log(`🔗 Do'stlarga ulashish callback: ${chatId}`)
+// 			await handleShareToFriends(chatId)
+// 			return
+// 		}
+
+// 		// Konkursga qo'shilish callback'i
+// 		if (callbackData.startsWith('join_contest_')) {
+// 			console.log(`🎯 Konkursga qo'shilish callback: ${callbackData}`)
+// 			const parts = callbackData.split('_')
+// 			if (parts.length >= 4) { // join_contest_<contestId>_<referrerId>
+// 				const contestId = parts[2]
+// 				const referrerId = parts[3]
+// 				await handleJoinContest(chatId, contestId, referrerId)
+// 			}
+// 			return
+// 		}
+
+// 		// Boshqa callback'larni qayta ishlash
+// 		switch (callbackData) {
+// 			case 'main_menu':
+// 				console.log('🏠 Asosiy menyu callback')
+// 				await showMainMenu(chatId)
+// 				break
+// 			case 'show_stats':
+// 				console.log('📊 Statistika callback')
+// 				await showUserStats(chatId)
+// 				break
+// 			case 'show_referral':
+// 				console.log('🔗 Taklif callback')
+// 				await showReferralInfo(chatId)
+// 				break
+// 			case 'show_referred_friends':
+// 				console.log("👥 Do'stlar callback")
+// 				await showReferredFriends(chatId)
+// 				break
+// 			case 'leaderboard':
+// 				console.log('🏆 Reyting callback')
+// 				await showLeaderboardAsTable(chatId)
+// 				break
+// 			case 'daily_bonus':
+// 				console.log('⭐ Kunlik bonus callback')
+// 				await handleDailyBonus(chatId)
+// 				break
+// 			case 'show_help':
+// 				console.log('ℹ️ Yordam callback')
+// 				await showHelp(chatId)
+// 				break
+// 			case 'list_contests_user':
+// 				console.log('🎯 Konkurslar callback')
+// 				await showActiveContestWithReferral(chatId)
+// 				break
+// 			case 'confirm_subscription':
+// 				console.log('✅ Obuna tasdiq callback')
+// 				await handleConfirmSubscription(chatId)
+// 				break
+// 			case 'check_subscription':
+// 				console.log('🔍 Obuna tekshirish callback')
+// 				await handleCheckSubscription(chatId)
+// 				break
+// 			case 'refresh_leaderboard':
+// 				console.log('🔄 Reyting yangilash callback')
+// 				await showLeaderboardAsTable(chatId)
+// 				break
+// 			case 'refresh_friends':
+// 				console.log("🔄 Do'stlar yangilash callback")
+// 				await showReferredFriends(chatId)
+// 				break
+// 			default:
+// 				// Konkurs postini yaratish callback'i
+// 				if (callbackData.startsWith('create_share_')) {
+// 					const contestId = callbackData.replace('create_share_', '')
+// 					console.log(`🎯 Konkurs postini yaratish: contestId=${contestId}`)
+					
+// 					const contest = await Contest.findById(contestId)
+// 					if (!contest) {
+// 						await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+// 						return
+// 					}
+
+// 					const user = await User.findOne({ chatId })
+// 					if (!user) {
+// 						await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+// 						return
+// 					}
+
+// 					// Referal link yaratish
+// 					const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`
+
+// 					// Ulashish uchun xabar tayyorlash
+// 					let shareMessage = ''
+// 					let image = contest.image
+
+// 					const contestName = contest.name || 'Konkurs'
+// 					const contestDescription = contest.description || 'Konkurs tavsifi mavjud emas'
+// 					const contestReward = contest.reward || contest.rewardPoints || 0
+// 					const contestWinners = contest.winnerCount || contest.winnersCount || 1
+
+// 					// Tavsifni qisqartirish
+// 					let shortDescription = contestDescription
+// 					if (shortDescription.length > 200) {
+// 						shortDescription = shortDescription.substring(0, 200) + '...'
+// 					}
+
+// 					// KONKURS POSTI
+// 					shareMessage =
+// 						`🎯 <b>${contestName}</b>\n\n` +
+// 						`${shortDescription}\n\n` +
+// 						`💰 <b>Mukofot:</b> ${contestReward} ball\n` +
+// 						`👑 <b>G'oliblar soni:</b> ${contestWinners} ta\n` +
+// 						`📅 <b>Boshlanish:</b> ${formatDate(contest.startDate)}\n` +
+// 						`⏳ <b>Tugash:</b> ${formatDate(contest.endDate)}\n\n` +
+// 						`👇 Quyidagi tugma orqali konkursga qo'shiling`
+
+// 					// Ulashish uchun keyboard
+// 					const shareKeyboard = {
+// 						reply_markup: {
+// 							inline_keyboard: [
+// 								[
+// 									{
+// 										text: "✅ Qatnashish",
+// 										callback_data: `join_contest_${contest._id}_${chatId}`
+// 									}
+// 								]
+// 							]
+// 						}
+// 					}
+
+// 					// Foydalanuvchiga xabar yuborish
+// 					await bot.sendMessage(
+// 						chatId,
+// 						`✅ <b>Konkurs posti tayyor!</b>\n\n` +
+// 							`Endi bu xabarni do'stlaringizga <b>forward</b> qilishingiz mumkin:\n\n` +
+// 							`1. Quyidagi xabarni bosing\n` +
+// 							`2. "Forward" tugmasini bosing\n` +
+// 							`3. Do'stlaringizni tanlang`,
+// 						{ parse_mode: 'HTML' }
+// 					)
+
+// 					// Konkurs postini yuborish (rasm bilan)
+// 					if (image) {
+// 						await bot.sendPhoto(chatId, image, {
+// 							caption: shareMessage,
+// 							parse_mode: 'HTML',
+// 							reply_markup: shareKeyboard.reply_markup
+// 						})
+// 					} else {
+// 						await bot.sendMessage(chatId, shareMessage, {
+// 							parse_mode: 'HTML',
+// 							reply_markup: shareKeyboard.reply_markup
+// 						})
+// 					}
+
+// 					console.log(`✅ Konkurs posti yaratildi: ${chatId}`)
+// 					return
+// 				}
+				
+// 				// Eski konkurs tugmalari (agar kerak bo'lsa)
+// 				else if (callbackData.startsWith('contest_join_')) {
+// 					const contestId = callbackData.replace('contest_join_', '')
+// 					console.log(`🎯 Konkursga qatnashish (eski): ${contestId}`)
+// 					await bot.sendMessage(chatId, `✅ "Konkursga qatnashish" tugmasi bosildi!\nKonkurs ID: ${contestId}`)
+// 				}
+// 				else if (callbackData.startsWith('user_contest_')) {
+// 					const contestId = callbackData.replace('user_contest_', '')
+// 					console.log(`📋 Konkurs batafsil (eski): ${contestId}`)
+// 					await bot.sendMessage(chatId, `📋 "Batafsil ma'lumot" tugmasi bosildi!\nKonkurs ID: ${contestId}`)
+// 				}
+// 				// Do'stlar sahifasi callback'i
+// 				else if (callbackData.startsWith('friends_page_')) {
+// 					const page = parseInt(callbackData.replace('friends_page_', ''))
+// 					console.log(`📄 Do'stlar sahifasi: ${page}`)
+// 					await showReferredFriendsAsTable(chatId, page)
+// 				}
+// 				else {
+// 					console.log(`👤 User noma'lum callback: ${callbackData}`)
+// 					await bot.sendMessage(chatId, '❌ Noma\'lum amal. Iltimos, boshqa tugmani bosing.')
+// 				}
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ Callback qayta ishlash xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko\'ring.')
+// 	}
+// }
+
+// ==================== REAL-TIME OBUNA TEKSHIRISH ====================
+
+
+
+// ==================== YANGILANGAN CALLBACK HANDLER ====================
 
 const handleCallback = async (chatId, callbackData) => {
 	try {
 		console.log(`📞 Callback data: ${callbackData}, chatId: ${chatId}`)
-
-		// Konkurs postini yaratish callback'ini qayta ishlash
-		if (callbackData.startsWith('create_share_')) {
-			const contestId = callbackData.replace('create_share_', '')
-			console.log(`🎯 Konkurs postini yaratish: contestId=${contestId}`)
+		
+		// OBUNANI REAL-TIME TEKSHIRISH
+		const subscriptionCheck = await checkSubscriptionRealTime(chatId)
+		
+		if (!subscriptionCheck.userExists) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi. /start ni bosing.')
+			return
+		}
+		
+		// Agar user obuna bo'lmagan bo'lsa
+		if (!subscriptionCheck.subscribed) {
+			// Agar oldin obuna bo'lgan deb yozilgan bo'lsa, lekin endi chiqib ketgan bo'lsa
+			if (subscriptionCheck.wasSubscribed) {
+				await bot.sendMessage(
+					chatId,
+					'⚠️ <b>Siz kanallardan chiqib ketgansiz!</b>\n\n' +
+					'Botdan foydalanish uchun qaytadan kanallarga obuna bo\'ling.',
+					{ parse_mode: 'HTML' }
+				)
+			}
 			
-			const contest = await Contest.findById(contestId)
-			if (!contest) {
-				await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
-				return
-			}
-
-			const user = await User.findOne({ chatId })
-			if (!user) {
-				await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-				return
-			}
-
-			// Referal link yaratish
-			const referralLink = `https://t.me/${process.env.BOT_USERNAME}?start=${chatId}`
-
-			// Ulashish uchun xabar tayyorlash
-			let shareMessage = ''
-			let image = contest.image
-
-			const contestName = contest.name || 'Konkurs'
-			const contestDescription = contest.description || 'Konkurs tavsifi mavjud emas'
-			const contestReward = contest.reward || contest.rewardPoints || 0
-			const contestWinners = contest.winnerCount || contest.winnersCount || 1
-
-			// Tavsifni qisqartirish
-			let shortDescription = contestDescription
-			if (shortDescription.length > 200) {
-				shortDescription = shortDescription.substring(0, 200) + '...'
-			}
-
-			// ✅ KONKURS POSTI: Rasm tagida konkurs + referal link
-			shareMessage =
-				`🎯 <b>${contestName}</b>\n\n` +
-				`${shortDescription}\n\n` +
-				`💰 <b>Mukofot:</b> ${contestReward} ball\n` +
-				`👑 <b>G'oliblar soni:</b> ${contestWinners} ta\n` +
-				`📅 <b>Boshlanish:</b> ${formatDate(contest.startDate)}\n` +
-				`⏳ <b>Tugash:</b> ${formatDate(contest.endDate)}\n\n` +
-				`🔗 <b>Qo'shilish uchun:</b> ${referralLink}`
-
-			// Ulashish uchun keyboard
-			const shareKeyboard = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: "🎯 Konkursga qo'shilish",
-								url: referralLink
-							}
-						]
-					]
-				}
-			}
-
-			// Foydalanuvchiga xabar yuborish
-			await bot.sendMessage(
-				chatId,
-				`✅ <b>Konkurs posti tayyor!</b>\n\n` +
-					`Endi bu xabarni do'stlaringizga <b>forward</b> qilishingiz mumkin:\n\n` +
-					`1. Quyidagi xabarni bosing\n` +
-					`2. "Forward" tugmasini bosing\n` +
-					`3. Do'stlaringizni tanlang`,
-				{ parse_mode: 'HTML' }
+			// Kanallarni ko'rsatish
+			const channels = await Channel.find({
+				isActive: true,
+				requiresSubscription: true
+			})
+			
+			await showChannelsForSubscriptionWithStatus(
+				chatId, 
+				channels, 
+				subscriptionCheck.notSubscribedChannels || []
 			)
+			return
+		}
+		
+		// "Do'stlarga ulashish" callback'i
+		if (callbackData === 'share_to_friends') {
+			console.log(`🔗 Do'stlarga ulashish callback: ${chatId}`)
+			await handleShareToFriends(chatId)
+			return
+		}
 
-			// Konkurs postini yuborish (rasm bilan)
-			if (image) {
-				await bot.sendPhoto(chatId, image, {
-					caption: shareMessage,
-					parse_mode: 'HTML',
-					reply_markup: shareKeyboard.reply_markup
-				})
-			} else {
-				await bot.sendMessage(chatId, shareMessage, {
-					parse_mode: 'HTML',
-					reply_markup: shareKeyboard.reply_markup
-				})
+		// Konkursga qo'shilish callback'i
+		if (callbackData.startsWith('join_contest_')) {
+			console.log(`🎯 Konkursga qo'shilish callback: ${callbackData}`)
+			const parts = callbackData.split('_')
+			if (parts.length >= 4) {
+				const contestId = parts[2]
+				const referrerId = parts[3]
+				await handleJoinContest(chatId, contestId, referrerId)
 			}
-
-			console.log(`✅ Konkurs posti yaratildi: ${chatId}`)
 			return
 		}
 
 		// Boshqa callback'larni qayta ishlash
 		switch (callbackData) {
 			case 'main_menu':
+				console.log('🏠 Asosiy menyu callback')
 				await showMainMenu(chatId)
 				break
 			case 'show_stats':
+				console.log('📊 Statistika callback')
 				await showUserStats(chatId)
 				break
 			case 'show_referral':
+				console.log('🔗 Taklif callback')
 				await showReferralInfo(chatId)
 				break
 			case 'show_referred_friends':
+				console.log("👥 Do'stlar callback")
 				await showReferredFriends(chatId)
 				break
 			case 'leaderboard':
+				console.log('🏆 Reyting callback')
 				await showLeaderboardAsTable(chatId)
 				break
 			case 'daily_bonus':
+				console.log('⭐ Kunlik bonus callback')
 				await handleDailyBonus(chatId)
 				break
 			case 'show_help':
+				console.log('ℹ️ Yordam callback')
 				await showHelp(chatId)
 				break
 			case 'list_contests_user':
+				console.log('🎯 Konkurslar callback')
 				await showActiveContestWithReferral(chatId)
 				break
 			case 'confirm_subscription':
+				console.log('✅ Obuna tasdiq callback')
 				await handleConfirmSubscription(chatId)
 				break
 			case 'check_subscription':
+				console.log('🔍 Obuna tekshirish callback')
 				await handleCheckSubscription(chatId)
 				break
 			case 'refresh_leaderboard':
+				console.log('🔄 Reyting yangilash callback')
 				await showLeaderboardAsTable(chatId)
 				break
 			case 'refresh_friends':
+				console.log("🔄 Do'stlar yangilash callback")
 				await showReferredFriends(chatId)
 				break
 			default:
-				// Konkursga qatnashish callback'i
-				if (callbackData.startsWith('contest_join_')) {
-					const contestId = callbackData.replace('contest_join_', '')
-					await bot.sendMessage(chatId, `✅ "Konkursga qatnashish" tugmasi bosildi!\nKonkurs ID: ${contestId}`)
-				}
-				// Konkurs batafsil ma'lumot callback'i
-				else if (callbackData.startsWith('user_contest_')) {
-					const contestId = callbackData.replace('user_contest_', '')
-					await bot.sendMessage(chatId, `📋 "Batafsil ma'lumot" tugmasi bosildi!\nKonkurs ID: ${contestId}`)
-				}
-				// Do'stlar sahifasi callback'i
-				else if (callbackData.startsWith('friends_page_')) {
-					const page = parseInt(callbackData.replace('friends_page_', ''))
-					await showReferredFriendsAsTable(chatId, page)
-				}
-				else {
-					console.log(`👤 User noma'lum callback: ${callbackData}`)
-					await bot.sendMessage(chatId, '❌ Noma\'lum amal.')
-				}
+				// ... qolgan callback'lar
 		}
 	} catch (error) {
 		console.error('❌ Callback qayta ishlash xatosi:', error)
 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.')
 	}
 }
+
+// ==================== OBUNA TEKSHIRISH MIDDLEWARE ====================
+
+const checkUserSubscriptionMiddleware = async (chatId, callback = null) => {
+	try {
+		const user = await User.findOne({ chatId })
+		
+		if (!user) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi. /start ni bosing.')
+			return false
+		}
+		
+		if (!user.isSubscribed) {
+			// Obuna bo'lmagan foydalanuvchi uchun
+			await showChannelsForSubscriptionWithStatus(chatId)
+			return false
+		}
+		
+		return true
+	} catch (error) {
+		console.error('❌ Obuna tekshirish middleware xatosi:', error)
+		return false
+	}
+}
+
+// ==================== YANGILANGAN FUNKSIYALAR ====================
+
+const handleUserStats = async chatId => {
+	// Obuna tekshirish
+	if (!await checkUserSubscriptionMiddleware(chatId)) return
+	
+	// Asl funksiya
+	try {
+		console.log(`📊 Foydalanuvchi statistikasi: ${chatId}`)
+
+		const user = await User.findOne({ chatId })
+		if (!user) {
+			console.log(`❌ Foydalanuvchi topilmadi: ${chatId}`)
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+			return
+		}
+
+		// ... funksiyaning qolgan qismi o'zgarmaydi
+	} catch (error) {
+		console.error('❌ Foydalanuvchi statistikasini koʻrsatish xatosi:', error)
+		await bot.sendMessage(chatId, "❌ Statistikani ko'rsatishda xatolik yuz berdi.")
+	}
+}
+
+const handleShowReferral = async chatId => {
+	// Obuna tekshirish
+	if (!await checkUserSubscriptionMiddleware(chatId)) return
+	
+	// Asl funksiya
+	await showReferralInfo(chatId)
+}
+
+const handleShowReferredFriends = async chatId => {
+	// Obuna tekshirish
+	if (!await checkUserSubscriptionMiddleware(chatId)) return
+	
+	// Asl funksiya
+	await showReferredFriends(chatId)
+}
+
+const handleLeaderboard = async chatId => {
+	// Obuna tekshirish
+	if (!await checkUserSubscriptionMiddleware(chatId)) return
+	
+	// Asl funksiya
+	await showLeaderboardAsTable(chatId)
+}
+
+const handleDailyBonus = async chatId => {
+	// Obuna tekshirish
+	if (!await checkUserSubscriptionMiddleware(chatId)) return
+	
+	// Asl funksiya
+	try {
+		const user = await User.findOne({ chatId })
+
+		if (!user) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+			return
+		}
+
+		// ... qolgan kod
+	} catch (error) {
+		console.error('❌ Kunlik bonus xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
+}
+
+const handleContests = async chatId => {
+	// Obuna tekshirish
+	if (!await checkUserSubscriptionMiddleware(chatId)) return
+	
+	// Asl funksiya
+	await showActiveContestWithReferral(chatId)
+}
+
+
+// userController.js ning oxiriga quyidagi funksiyalarni qo'shamiz:
+
+// ==================== OBUNA TEKSHIRISH FUNKSIYALARI ====================
+
+const checkUserSubscription = async (chatId) => {
+	try {
+		const user = await User.findOne({ chatId });
+		if (!user) return { subscribed: false, userExists: false };
+		
+		// Agar obuna bo'lmagan bo'lsa
+		if (!user.isSubscribed) {
+			return { subscribed: false, userExists: true, user: user };
+		}
+		
+		// Real obunani tekshirish
+		const channels = await Channel.find({
+			isActive: true,
+			requiresSubscription: true
+		});
+		
+		if (channels.length === 0) {
+			return { subscribed: true, userExists: true, user: user };
+		}
+		
+		let allSubscribed = true;
+		let notSubscribedChannels = [];
+		
+		for (const channel of channels) {
+			try {
+				if (channel.channelId) {
+					const channelIdNum = channel.channelId.startsWith('-100')
+						? channel.channelId
+						: `-100${channel.channelId}`;
+						
+					const chatMember = await bot.getChatMember(channelIdNum, chatId);
+					const isMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+					
+					if (!isMember) {
+						allSubscribed = false;
+						notSubscribedChannels.push({
+							name: channel.name,
+							link: channel.link
+						});
+					}
+				}
+			} catch (error) {
+				console.error(`❌ Kanal tekshirish xatosi (${channel.name}):`, error.message);
+				allSubscribed = false;
+				notSubscribedChannels.push({
+					name: channel.name,
+					link: channel.link,
+					error: true
+				});
+			}
+		}
+		
+		// Agar user obuna bo'lgan deb yozilgan, lekin haqiqatda obuna bo'lmagan bo'lsa
+		if (user.isSubscribed && !allSubscribed) {
+			user.isSubscribed = false;
+			await user.save();
+			
+			console.log(`❌ ${chatId} obuna holati yangilandi: haqiqatda obuna emas`);
+			
+			return {
+				subscribed: false,
+				userExists: true,
+				user: user,
+				notSubscribedChannels: notSubscribedChannels,
+				wasSubscribed: true
+			};
+		}
+		
+		return {
+			subscribed: allSubscribed,
+			userExists: true,
+			user: user,
+			notSubscribedChannels: notSubscribedChannels.length > 0 ? notSubscribedChannels : null
+		};
+		
+	} catch (error) {
+		console.error('❌ Obuna tekshirish xatosi:', error);
+		return { subscribed: false, error: true };
+	}
+};
+
+// ==================== OBUNA TEKSHIRISH MIDDLEWARE ====================
+
+const requireSubscription = async (chatId, callback) => {
+	try {
+		const subscription = await checkUserSubscription(chatId);
+		
+		if (!subscription.userExists) {
+			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi. /start ni bosing.');
+			return false;
+		}
+		
+		if (!subscription.subscribed) {
+			// Agar oldin obuna bo'lgan bo'lsa
+			if (subscription.wasSubscribed) {
+				await bot.sendMessage(
+					chatId,
+					'⚠️ <b>Siz kanallardan chiqib ketgansiz!</b>\n\n' +
+					'Botdan foydalanish uchun qaytadan kanallarga obuna bo\'ling.',
+					{ parse_mode: 'HTML' }
+				);
+			}
+			
+			// Kanallarni ko'rsatish
+			const channels = await Channel.find({
+				isActive: true,
+				requiresSubscription: true
+			});
+			
+			await showChannelsForSubscriptionWithStatus(
+				chatId, 
+				channels, 
+				subscription.notSubscribedChannels || []
+			);
+			return false;
+		}
+		
+		// Agar callback berilgan bo'lsa, uni chaqiramiz
+		if (callback && typeof callback === 'function') {
+			await callback();
+		}
+		
+		return true;
+	} catch (error) {
+		console.error('❌ Obuna middleware xatosi:', error);
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi.');
+		return false;
+	}
+};
+
+// ==================== YANGILANGAN FUNKSIYALAR ====================
+
+// Obuna tekshirish bilan yangilangan funksiyalar
+const showUserStatsWithCheck = async (chatId) => {
+	await requireSubscription(chatId, () => showUserStats(chatId));
+};
+
+const showReferralInfoWithCheck = async (chatId) => {
+	await requireSubscription(chatId, () => showReferralInfo(chatId));
+};
+
+const showReferredFriendsWithCheck = async (chatId) => {
+	await requireSubscription(chatId, () => showReferredFriends(chatId));
+};
+
+const showLeaderboardWithCheck = async (chatId) => {
+	await requireSubscription(chatId, () => showLeaderboardAsTable(chatId));
+};
+
+const handleDailyBonusWithCheck = async (chatId) => {
+	await requireSubscription(chatId, () => handleDailyBonus(chatId));
+};
+
+const showActiveContestWithCheck = async (chatId) => {
+	await requireSubscription(chatId, () => showActiveContestWithReferral(chatId));
+};
+
+const handleShareToFriendsWithCheck = async (chatId) => {
+	await requireSubscription(chatId, () => handleShareToFriends(chatId));
+};
+
+// ==================== REAL-TIME OBUNA TEKSHIRISH ====================
+
+const checkSubscriptionRealTime = async chatId => {
+	try {
+		console.log(`🔍 Real-time obuna tekshirish: ${chatId}`)
+
+		const user = await User.findOne({ chatId })
+		
+		if (!user) {
+			return {
+				subscribed: false,
+				userExists: false,
+				message: 'Foydalanuvchi topilmadi'
+			}
+		}
+
+		// KANALLARNI OLISH
+		const channels = await Channel.find({
+			isActive: true,
+			requiresSubscription: true
+		})
+
+		console.log(`📋 Real-time tekshiriladigan kanallar soni: ${channels.length}`)
+
+		if (channels.length === 0) {
+			return {
+				subscribed: true,
+				userExists: true,
+				user: user,
+				message: 'Majburiy kanallar yo\'q'
+			}
+		}
+
+		// HAQQIQIY OBUNA HOLATINI TEKSHIRISH
+		let allSubscribed = true
+		let notSubscribedChannels = []
+
+		for (const channel of channels) {
+			try {
+				if (channel.channelId) {
+					const channelIdNum = channel.channelId.startsWith('-100')
+						? channel.channelId
+						: `-100${channel.channelId}`
+
+					const chatMember = await bot.getChatMember(channelIdNum, chatId)
+					const isMember = ['member', 'administrator', 'creator'].includes(chatMember.status)
+
+					console.log(`📊 ${channel.name} holati: ${chatMember.status}`)
+
+					if (!isMember) {
+						allSubscribed = false
+						notSubscribedChannels.push({
+							name: channel.name,
+							link: channel.link
+						})
+					}
+				}
+			} catch (error) {
+				console.error(`❌ Kanal tekshirish xatosi (${channel.name}):`, error.message)
+				allSubscribed = false
+				notSubscribedChannels.push({
+					name: channel.name,
+					link: channel.link,
+					error: true
+				})
+			}
+		}
+
+		// Foydalanuvchi ma'lumotlarini yangilash
+		const wasSubscribed = user.isSubscribed
+		user.isSubscribed = allSubscribed
+		
+		// Agar haqiqatda obuna bo'lgan bo'lsa
+		if (allSubscribed && !wasSubscribed) {
+			// Referal bonus berish
+			await awardReferralBonus(user)
+		}
+		
+		await user.save()
+
+		return {
+			subscribed: allSubscribed,
+			userExists: true,
+			user: user,
+			wasSubscribed: wasSubscribed,
+			notSubscribedChannels: notSubscribedChannels,
+			message: allSubscribed 
+				? `✅ Barcha ${channels.length} ta kanalga obuna bo'lgansiz!`
+				: `❌ ${channels.length - notSubscribedChannels.length}/${channels.length} kanalga obuna bo'lgansiz`
+		}
+		
+	} catch (error) {
+		console.error('❌ Real-time obuna tekshirish xatosi:', error)
+		return {
+			subscribed: false,
+			error: true,
+			message: 'Obuna tekshirishda xatolik yuz berdi'
+		}
+	}
+}
+
 // ==================== EKSPORT QILISH ====================
 
 module.exports = {
@@ -1985,6 +3015,8 @@ module.exports = {
 	// Obuna tekshirish funksiyalari
 	checkSingleChannelSubscription,
 	checkAllChannelSubscriptions,
+	checkUserSubscription, // YANGI
+	requireSubscription, // YANGI
 
 	// Asosiy funksiyalar
 	handleStart,
@@ -2002,9 +3034,26 @@ module.exports = {
 	handleConfirmSubscription,
 	showReferredFriendsAsTable,
 	showUserStatsAsTable,
-	handleCallback ,
+	handleCallback,
 	awardReferralBonus,
 	shareContest,
+
+	// Yangilangan funksiyalar (obuna tekshirish bilan)
+	showUserStatsWithCheck,
+	showReferralInfoWithCheck,
+	showReferredFriendsWithCheck,
+	showLeaderboardWithCheck,
+	handleDailyBonusWithCheck,
+	showActiveContestWithCheck,
+	handleShareToFriendsWithCheck,
+
+	// ✅ YANGI FUNKSIYALAR
+	sendContestToChat,
+	handleShareToFriends,
+	handleInlineQuery,
+	handleJoinContest,
+	checkSubscriptionRealTime,
+
 	// Qo'shimcha funksiyalar
 	escapeHTML
 }
