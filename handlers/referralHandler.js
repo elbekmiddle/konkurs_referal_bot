@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require("../models/User");
 
 class ReferralHandler {
   static async handleReferralLink(bot, msg) {
@@ -6,7 +6,7 @@ class ReferralHandler {
     const botUsername = (await bot.getMe()).username;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
 
-    const message = 
+    const message =
       `👥 **Do'stlaringizni taklif qiling!**\n\n` +
       `🔗 **Sizning referal linkingiz:**\n` +
       `\`${referralLink}\`\n\n` +
@@ -16,25 +16,28 @@ class ReferralHandler {
       `• 30+ taklif: ⭐20 ball\n\n` +
       `🎁 **Bonus:** Har bir yangi taklif uchun bonus ball!`;
 
-    await bot.sendMessage(
-      chatId,
-      message,
-      { 
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "📤 Ulashish", url: `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=Men sizni ushbu ajoyib botga taklif qilaman!` }],
-            [{ text: "📊 Mening takliflarim", callback_data: 'my_referrals' }]
-          ]
-        }
-      }
-    );
+    await bot.sendMessage(chatId, message, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "📤 Ulashish",
+              url: `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=Men sizni ushbu ajoyib botga taklif qilaman!`,
+            },
+          ],
+          [{ text: "📊 Mening takliflarim", callback_data: "my_referrals" }],
+        ],
+      },
+    });
   }
 
   static async handleMyReferrals(bot, chatId) {
     try {
       const user = await User.findOne({ chatId });
-      const referrals = await User.find({ refBy: chatId }).sort({ joinDate: -1 });
+      const referrals = await User.find({ refBy: chatId }).sort({
+        joinDate: -1,
+      });
 
       let message = `📊 **Sizning takliflaringiz:** ${referrals.length} ta\n\n`;
 
@@ -50,11 +53,10 @@ class ReferralHandler {
 
       message += `\n⭐ **Jami ball:** ${user.points}`;
 
-      await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-
+      await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
     } catch (error) {
-      console.error('Referrals handler xatosi:', error);
-      await bot.sendMessage(chatId, '❌ Ma`lumotlarni yuklashda xatolik.');
+      console.error("Referrals handler xatosi:", error);
+      await bot.sendMessage(chatId, "❌ Ma`lumotlarni yuklashda xatolik.");
     }
   }
 }
