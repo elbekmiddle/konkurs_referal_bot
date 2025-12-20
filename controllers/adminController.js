@@ -763,44 +763,82 @@ function splitMessage(text, maxLength) {
 	return parts
 }
 
-const showTopUsers = async (chatId) => {
-  try {
-    const topUsers = await User.find({})
-      .sort({ points: -1 })
-      .limit(20)
-      .select("username fullName points referrals joinDate isSubscribed");
+// const showTopUsers = async (chatId) => {
+//   try {
+//     const topUsers = await User.find({})
+//       .sort({ points: -1 })
+//       .limit(20)
+//       .select("username fullName points referrals joinDate isSubscribed");
 
-    // TO'G'RILANGAN: Markdown emas
-    let message = `🏆 Top 20 foydalanuvchi\n\n`;
+//     // TO'G'RILANGAN: Markdown emas
+//     let message = `🏆 Top 20 foydalanuvchi\n\n`;
 
-    if (topUsers.length === 0) {
-      message += "❌ Hozircha foydalanuvchilar mavjud emas.";
-    } else {
-      topUsers.forEach((user, index) => {
-        const medal = index < 3 ? ["🥇", "🥈", "🥉"][index] : `${index + 1}.`;
-        const joinDate = new Date(user.joinDate).toLocaleDateString("uz-UZ");
-        const status = user.isSubscribed ? "✅" : "❌";
+//     if (topUsers.length === 0) {
+//       message += "❌ Hozircha foydalanuvchilar mavjud emas.";
+//     } else {
+//       topUsers.forEach((user, index) => {
+//         const medal = index < 3 ? ["🥇", "🥈", "🥉"][index] : `${index + 1}.`;
+//         const joinDate = new Date(user.joinDate).toLocaleDateString("uz-UZ");
+//         const status = user.isSubscribed ? "✅" : "❌";
 
-        message += `${medal} ${user.fullName}\n`;
-        message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`;
-        message += `   📅 ${joinDate} | ${status}\n\n`;
-      });
-    }
+//         message += `${medal} ${user.fullName}\n`;
+//         message += `   ⭐ ${user.points} ball | 👥 ${user.referrals} taklif\n`;
+//         message += `   📅 ${joinDate} | ${status}\n\n`;
+//       });
+//     }
 
-    const inline_keyboard = [
-      [{ text: "📋 Barcha foydalanuvchilar", callback_data: "all_users_1" }],
-      [{ text: "◀️ Orqaga", callback_data: "back_to_admin" }],
-    ];
+//     const inline_keyboard = [
+//       [{ text: "📋 Barcha foydalanuvchilar", callback_data: "all_users_1" }],
+//       [{ text: "◀️ Orqaga", callback_data: "back_to_admin" }],
+//     ];
 
-    // TO'G'RILANGAN: parse_mode ni o'chirdik
-    await bot.sendMessage(chatId, message, {
-      reply_markup: { inline_keyboard },
-    });
-  } catch (error) {
-    console.error("❌ Top foydalanuvchilarni koʻrsatish xatosi:", error);
-    await bot.sendMessage(chatId, "❌ Xatolik yuz berdi");
-  }
-};
+//     // TO'G'RILANGAN: parse_mode ni o'chirdik
+//     await bot.sendMessage(chatId, message, {
+//       reply_markup: { inline_keyboard },
+//     });
+//   } catch (error) {
+//     console.error("❌ Top foydalanuvchilarni koʻrsatish xatosi:", error);
+//     await bot.sendMessage(chatId, "❌ Xatolik yuz berdi");
+//   }
+// };
+
+const showTopUsers = async chatId => {
+	try {
+		// TO'G'RILANGAN: referrals bo'yicha saralash
+		const topUsers = await User.find({})
+			.sort({ referrals: -1 }) // referrals bo'yicha teskari tartibda saralash
+			.limit(20)
+			.select('username fullName points referrals joinDate isSubscribed')
+
+		let message = `🏆 Takliflar bo'yicha top 20 foydalanuvchi\n\n`
+
+		if (topUsers.length === 0) {
+			message += '❌ Hozircha foydalanuvchilar mavjud emas.'
+		} else {
+			topUsers.forEach((user, index) => {
+				const medal = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}.`
+				const joinDate = new Date(user.joinDate).toLocaleDateString('uz-UZ')
+				const status = user.isSubscribed ? '✅Obuna bo`lgan' : '❌Obuna bo`lmagan'
+
+				message += `${medal} ${user.fullName}\n`
+				message += `   👥 ${user.referrals} ta taklif | ⭐ ${user.points} ball\n`
+				message += `   📅 ${joinDate} | ${status}\n\n`
+			})
+		}
+
+		const inline_keyboard = [
+			[{ text: '📋 Barcha foydalanuvchilar', callback_data: 'all_users_1' }],
+			[{ text: '◀️ Orqaga', callback_data: 'back_to_admin' }]
+		]
+
+		await bot.sendMessage(chatId, message, {
+			reply_markup: { inline_keyboard }
+		})
+	} catch (error) {
+		console.error('❌ Top foydalanuvchilarni koʻrsatish xatosi:', error)
+		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+	}
+}
 
 const showRecentUsers = async (chatId) => {
   try {

@@ -956,55 +956,139 @@ O‘zingiz ham foyda ko‘rasiz 👌
 
 // ==================== REYTING JADVALI ====================
 
+// const showLeaderboardAsTable = async chatId => {
+// 	try {
+// 		const topUsers = await User.find({})
+// 			.sort({ points: -1 })
+// 			.limit(15)
+// 			.select('username fullName points referrals chatId')
+
+// 		const currentUser = await User.findOne({ chatId })
+
+// 		let message = `<b>REYTING JADVALI</b>\n\n`
+// 		message += `Eng ko'p ball to'plagan 15 ta foydalanuvchi\n\n`
+
+// 		message += '<code>┌──────────────────────────────────────────────┐\n'
+// 		message += "│ O'RNI │      ISM      │  BALL  │ TAKLIF │\n"
+// 		message += '├──────────────────────────────────────────────┤\n'
+
+// 		topUsers.forEach((user, index) => {
+// 			const rank = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}.`
+// 			const name =
+// 				user.fullName.length > 10
+// 					? user.fullName.substring(0, 10) + '...'
+// 					: user.fullName.padEnd(12, ' ')
+
+// 			const points = user.points.toString().padStart(6, ' ')
+// 			const referrals = user.referrals.toString().padStart(3, ' ')
+// 			const isCurrent = user.chatId === chatId ? ' 👈' : ''
+
+// 			message += `│ ${rank.padEnd(
+// 				4,
+// 				' '
+// 			)} │ ${name} │ ${points} │ ${referrals} ${isCurrent.padStart(3, ' ')}│\n`
+// 		})
+
+// 		message += '└──────────────────────────────────────────────┘</code>\n\n'
+
+// 		if (currentUser) {
+// 			const userRank = (await User.countDocuments({ points: { $gt: currentUser.points } })) + 1
+// 			message += `<b>Sizning ma'lumotlaringiz:</b>\n`
+// 			message += `• Reytingdagi o'rni: ${userRank}\n`
+// 			message += `• Jami ball: ${currentUser.points}\n`
+// 			message += `• Takliflar: ${currentUser.referredUsers?.length || 0} ta\n`
+// 		}
+
+// 		const inline_keyboard = [
+// 			[
+// 				{ text: '🔄 Yangilash', callback_data: 'refresh_leaderboard' },
+// 				{ text: '📊 Mening statistikam', callback_data: 'show_stats' }
+// 			],
+// 			[{ text: '◀️ Orqaga', callback_data: 'main_menu' }]
+// 		]
+
+// 		await bot.sendMessage(chatId, message, {
+// 			parse_mode: 'HTML',
+// 			reply_markup: { inline_keyboard }
+// 		})
+// 	} catch (error) {
+// 		console.error('❌ Reyting jadvalini koʻrsatish xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
+// 	}
+// }
+
 const showLeaderboardAsTable = async chatId => {
 	try {
+		// Takliflar soni bo'yicha saralash
 		const topUsers = await User.find({})
-			.sort({ points: -1 })
+			.sort({ referrals: -1, points: -1 }) // takliflar, keyin ballar bo'yicha
 			.limit(15)
 			.select('username fullName points referrals chatId')
 
 		const currentUser = await User.findOne({ chatId })
 
-		let message = `<b>REYTING JADVALI</b>\n\n`
-		message += `Eng ko'p ball to'plagan 15 ta foydalanuvchi\n\n`
+		let message = `<b>👥 TAKLIFLAR BO'YICHA REYTING</b>\n\n`
+		message += `Eng ko'p taklif qilgan 15 ta foydalanuvchi\n\n`
 
-		message += '<code>┌──────────────────────────────────────────────┐\n'
-		message += "│ O'RNI │      ISM      │  BALL  │ TAKLIF │\n"
-		message += '├──────────────────────────────────────────────┤\n'
+		// Silliqroq table dizayni
+		// Table header
+		message += '<code>'
+		message += '┌────┬────────────────┬────────┬────────┐\n'
+		message += '│ #  │ Ism            │ Taklif │ Ball   │\n'
+		message += '├────┼────────────────┼────────┼────────┤\n'
 
 		topUsers.forEach((user, index) => {
-			const rank = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}.`
-			const name =
-				user.fullName.length > 10
-					? user.fullName.substring(0, 10) + '...'
-					: user.fullName.padEnd(12, ' ')
+			const rank =
+				index === 0
+					? '🥇 '
+					: index === 1
+					? '🥈 '
+					: index === 2
+					? '🥉 '
+					: `${index + 1}. `.padEnd(3, ' ')
 
-			const points = user.points.toString().padStart(6, ' ')
-			const referrals = user.referrals.toString().padStart(3, ' ')
-			const isCurrent = user.chatId === chatId ? ' 👈' : ''
+			let name = user.fullName || user.username || 'NoName'
+			if (name.length > 16) name = name.substring(0, 14) + '..'
+			name = name.padEnd(16, ' ')
 
-			message += `│ ${rank.padEnd(
-				4,
-				' '
-			)} │ ${name} │ ${points} │ ${referrals} ${isCurrent.padStart(3, ' ')}│\n`
+			const referrals = String(user.referrals || 0).padStart(6, ' ')
+			const points = String(user.points || 0).padStart(6, ' ')
+
+			const isCurrent = user.chatId === chatId ? ' 👈' : '   '
+
+			message += `│ ${rank}│ ${name} │ ${referrals} │ ${points} │${isCurrent}\n`
 		})
 
-		message += '└──────────────────────────────────────────────┘</code>\n\n'
+		message += '└────┴────────────────┴────────┴────────┘'
+		message += '</code>\n\n'
 
+		// Joriy foydalanuvchi haqida ma'lumot
 		if (currentUser) {
-			const userRank = (await User.countDocuments({ points: { $gt: currentUser.points } })) + 1
+			// Takliflar bo'yicha reytingni hisoblash
+			const userRank =
+				(await User.countDocuments({
+					$or: [
+						{ referrals: { $gt: currentUser.referrals || 0 } },
+						{
+							referrals: currentUser.referrals || 0,
+							points: { $gt: currentUser.points || 0 }
+						}
+					]
+				})) + 1
+
 			message += `<b>Sizning ma'lumotlaringiz:</b>\n`
 			message += `• Reytingdagi o'rni: ${userRank}\n`
-			message += `• Jami ball: ${currentUser.points}\n`
-			message += `• Takliflar: ${currentUser.referredUsers?.length || 0} ta\n`
+			message += `• Taklif qilinganlar: ${currentUser.referrals || 0} ta\n`
+			message += `• Jami ball: ${currentUser.points || 0}\n`
 		}
 
 		const inline_keyboard = [
+			[{ text: '👥 Takliflar boʻyicha', callback_data: 'leaderboard_by_referrals' }],
 			[
 				{ text: '🔄 Yangilash', callback_data: 'refresh_leaderboard' },
-				{ text: '📊 Mening statistikam', callback_data: 'show_stats' }
+				{ text: '📊 Statistikam', callback_data: 'show_stats' }
 			],
-			[{ text: '◀️ Orqaga', callback_data: 'main_menu' }]
+			[{ text: '◀️ Bosh menyu', callback_data: 'main_menu' }]
 		]
 
 		await bot.sendMessage(chatId, message, {
@@ -1016,7 +1100,6 @@ const showLeaderboardAsTable = async chatId => {
 		await bot.sendMessage(chatId, '❌ Xatolik yuz berdi')
 	}
 }
-
 // ==================== YORDAM ====================
 
 const showHelp = async chatId => {
