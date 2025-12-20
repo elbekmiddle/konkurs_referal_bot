@@ -27,182 +27,248 @@ const saveLastMessage = (chatId, messageId) => {
 
 // ==================== REFERAL TIZIMI ====================
 
+// const processReferral = async (referrerChatId, newUser) => {
+// 	try {
+// 		console.log(`🔍 Referal qidirilmoqda: ${referrerChatId} -> ${newUser.chatId}`)
+
+// 		const referrer = await User.findOne({ chatId: parseInt(referrerChatId) })
+
+// 		if (!referrer) {
+// 			console.log('❌ Referrer topilmadi:', referrerChatId)
+// 			return
+// 		}
+
+// 		if (!referrer.isSubscribed) {
+// 			console.log(`ℹ️ Referrer hali obuna bo'lmagan: ${referrerChatId}`)
+// 			newUser.refBy = parseInt(referrerChatId)
+// 			await newUser.save()
+// 			return
+// 		}
+
+// 		const existingReferral = referrer.referredUsers?.find(ref => ref.chatId === newUser.chatId)
+
+// 		if (existingReferral) {
+// 			console.log(`⚠️ ${newUser.chatId} allaqachon taklif qilingan`)
+// 			return
+// 		}
+
+// 		referrer.referrals += 1
+// 		referrer.points += 10
+
+// 		referrer.referredUsers = referrer.referredUsers || []
+// 		referrer.referredUsers.push({
+// 			chatId: newUser.chatId,
+// 			username: newUser.username || "Noma'lum",
+// 			fullName: newUser.fullName || 'Foydalanuvchi',
+// 			joinDate: newUser.joinDate || new Date(),
+// 			points: newUser.points || 0
+// 		})
+
+// 		newUser.points = (newUser.points || 0) + 5
+// 		newUser.refBy = parseInt(referrerChatId)
+// 		newUser.hasReceivedReferralBonus = true
+
+// 		await referrer.save()
+// 		await newUser.save()
+
+// 		console.log(`✅ Referal muvaffaqiyatli: ${referrer.chatId} -> ${newUser.chatId}`)
+
+// 		try {
+// 			await bot.sendMessage(
+// 				referrer.chatId,
+// 				`🎉 <b>Yangi taklif!</b>\n\n` +
+// 					`Sizning taklif havolangiz orqali yangi foydalanuvchi qoʻshildi!\n\n` +
+// 					`👤 Yangi foydalanuvchi: ${newUser.fullName}\n` +
+// 					`💰 Sizga 10 ball qoʻshildi!\n` +
+// 					`🎁 Yangi foydalanuvchi 5 ball oldi!\n` +
+// 					`📊 Jami ball: ${referrer.points}\n` +
+// 					`👥 Jami takliflar: ${referrer.referredUsers.length} ta`,
+// 				{ parse_mode: 'HTML' }
+// 			)
+// 		} catch (error) {
+// 			console.log('⚠️ Taklif qilgan foydalanuvchiga xabar yuborishda xato:', error.message)
+// 		}
+
+// 		try {
+// 			await bot.sendMessage(
+// 				newUser.chatId,
+// 				`🎁 <b>Tabriklaymiz!</b>\n\n` +
+// 					`Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n\n` +
+// 					`💰 Sizga 5 ball berildi!\n` +
+// 					`📊 Jami ball: ${newUser.points}\n\n` +
+// 					`Do'stlaringizni taklif qiling va ko'proq ball to'plang!`,
+// 				{ parse_mode: 'HTML' }
+// 			)
+// 		} catch (error) {
+// 			console.log('⚠️ Taklif qilingan foydalanuvchiga xabar yuborishda xato:', error.message)
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ Referal qayta ishlash xatosi:', error)
+// 	}
+// }
 const processReferral = async (referrerChatId, newUser) => {
-	try {
-		console.log(`🔍 Referal qidirilmoqda: ${referrerChatId} -> ${newUser.chatId}`)
+    try {
+        console.log(`🔍 Referal qidirilmoqda: ${referrerChatId} -> ${newUser.chatId}`)
 
-		const referrer = await User.findOne({ chatId: parseInt(referrerChatId) })
+        const referrer = await User.findOne({ chatId: parseInt(referrerChatId) })
 
-		if (!referrer) {
-			console.log('❌ Referrer topilmadi:', referrerChatId)
-			return
-		}
+        if (!referrer) {
+            console.log('❌ Referrer topilmadi:', referrerChatId)
+            return
+        }
 
-		if (!referrer.isSubscribed) {
-			console.log(`ℹ️ Referrer hali obuna bo'lmagan: ${referrerChatId}`)
-			newUser.refBy = parseInt(referrerChatId)
-			await newUser.save()
-			return
-		}
+        // ====== MUHIM: REFERRER OBUNA BO'LISHI SHART ======
+        if (!referrer.isSubscribed) {
+            console.log(`❌ Referrer obuna bo'lmagan: ${referrerChatId}`)
+            
+            // ❗ OBUNA BO'LMAGAN FOYDALANUVCHI HEECH KIMNI TAKLIF QILA OLMAYDI
+            // HEECH QANDAY MA'LUMOT SAQLANMAYDI
+            // HEECH QANDAY XABAR YUBORILMAYDI
+            
+            console.log(`⚠️ Obuna bo'lmagan foydalanuvchi taklif qila olmaydi: ${referrerChatId}`)
+            return // ❗ TO'LIQ TO'XTATAMIZ
+        }
 
-		const existingReferral = referrer.referredUsers?.find(ref => ref.chatId === newUser.chatId)
+        // ====== YANGI USER OBUNA BO'LISHI SHART ======
+        if (!newUser.isSubscribed) {
+            console.log(`❌ Yangi foydalanuvchi obuna bo'lmagan: ${newUser.chatId}`)
+            
+            // ❗ FAQAT refBy NI SAQLAYMIZ, AMMO BONUS BERMAYMIZ
+            // Yangi user obuna bo'lganda keyin bonus beriladi
+            newUser.refBy = parseInt(referrerChatId)
+            await newUser.save()
+            
+            console.log(`ℹ️ Faqat refBy saqlandi (obuna bo'lmagan): ${newUser.chatId}`)
+            return
+        }
 
-		if (existingReferral) {
-			console.log(`⚠️ ${newUser.chatId} allaqachon taklif qilingan`)
-			return
-		}
+        // ====== OLDIN TAKLIF QILINGANMI TEKSHIRISH ======
+        const existingReferral = referrer.referredUsers?.find(ref => ref.chatId === newUser.chatId)
+        if (existingReferral) {
+            console.log(`⚠️ ${newUser.chatId} allaqachon taklif qilingan`)
+            return
+        }
 
-		referrer.referrals += 1
-		referrer.points += 10
+        // ====== IKKALASI HAM OBUNA BO'LSA BONUS BERISH ======
+        console.log(`✅ Ikkala foydalanuvchi ham obuna: ${referrer.chatId} -> ${newUser.chatId}`)
 
-		referrer.referredUsers = referrer.referredUsers || []
-		referrer.referredUsers.push({
-			chatId: newUser.chatId,
-			username: newUser.username || "Noma'lum",
-			fullName: newUser.fullName || 'Foydalanuvchi',
-			joinDate: newUser.joinDate || new Date(),
-			points: newUser.points || 0
-		})
+        // REFERRER uchun bonus
+        referrer.points += 10
+        referrer.referrals += 1
 
-		newUser.points = (newUser.points || 0) + 5
-		newUser.refBy = parseInt(referrerChatId)
-		newUser.hasReceivedReferralBonus = true
+        // Taklif qilinganlar ro'yxatiga qo'shish
+        referrer.referredUsers = referrer.referredUsers || []
+        referrer.referredUsers.push({
+            chatId: newUser.chatId,
+            username: newUser.username || "Noma'lum",
+            fullName: newUser.fullName || 'Foydalanuvchi',
+            joinDate: newUser.joinDate || new Date(),
+            points: newUser.points || 0
+        })
 
-		await referrer.save()
-		await newUser.save()
+        // YANGI FOYDALANUVCHI uchun bonus
+        newUser.points = (newUser.points || 0) + 5
+        newUser.refBy = parseInt(referrerChatId)
+        newUser.hasReceivedReferralBonus = true
 
-		console.log(`✅ Referal muvaffaqiyatli: ${referrer.chatId} -> ${newUser.chatId}`)
+        await referrer.save()
+        await newUser.save()
 
-		try {
-			await bot.sendMessage(
-				referrer.chatId,
-				`🎉 <b>Yangi taklif!</b>\n\n` +
-					`Sizning taklif havolangiz orqali yangi foydalanuvchi qoʻshildi!\n\n` +
-					`👤 Yangi foydalanuvchi: ${newUser.fullName}\n` +
-					`💰 Sizga 10 ball qoʻshildi!\n` +
-					`🎁 Yangi foydalanuvchi 5 ball oldi!\n` +
-					`📊 Jami ball: ${referrer.points}\n` +
-					`👥 Jami takliflar: ${referrer.referredUsers.length} ta`,
-				{ parse_mode: 'HTML' }
-			)
-		} catch (error) {
-			console.log('⚠️ Taklif qilgan foydalanuvchiga xabar yuborishda xato:', error.message)
-		}
+        console.log(`✅ Referal bonus berildi: ${referrer.chatId} -> ${newUser.chatId}`)
 
-		try {
-			await bot.sendMessage(
-				newUser.chatId,
-				`🎁 <b>Tabriklaymiz!</b>\n\n` +
-					`Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n\n` +
-					`💰 Sizga 5 ball berildi!\n` +
-					`📊 Jami ball: ${newUser.points}\n\n` +
-					`Do'stlaringizni taklif qiling va ko'proq ball to'plang!`,
-				{ parse_mode: 'HTML' }
-			)
-		} catch (error) {
-			console.log('⚠️ Taklif qilingan foydalanuvchiga xabar yuborishda xato:', error.message)
-		}
-	} catch (error) {
-		console.error('❌ Referal qayta ishlash xatosi:', error)
-	}
+        // XABARLARNI YUBORISH
+        try {
+            await bot.sendMessage(
+                referrer.chatId,
+                `🎉 <b>Yangi taklif bonus!</b>\n\n` +
+                `Sizning taklif havolangiz orqali ${newUser.fullName} obuna bo'ldi!\n\n` +
+                `💰 <b>Sizga 10 ball berildi!</b>\n` +
+                `🎁 <b>${newUser.fullName} ga 5 ball berildi!</b>\n` +
+                `📊 <b>Sizning ballaringiz:</b> ${referrer.points}\n` +
+                `👥 <b>Jami takliflar:</b> ${referrer.referredUsers.length} ta`,
+                { parse_mode: 'HTML' }
+            )
+        } catch (error) {
+            console.log('⚠️ Referrer ga xabar yuborishda xato:', error.message)
+        }
+
+        try {
+            await bot.sendMessage(
+                newUser.chatId,
+                `🎁 <b>Tabriklaymiz!</b>\n\n` +
+                `Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n\n` +
+                `💰 Sizga 5 ball berildi!\n` +
+                `📊 Jami ball: ${newUser.points}\n\n` +
+                `Do'stlaringizni taklif qiling va ko'proq ball to'plang!`,
+                { parse_mode: 'HTML' }
+            )
+        } catch (error) {
+            console.log('⚠️ Yangi foydalanuvchiga xabar yuborishda xato:', error.message)
+        }
+
+    } catch (error) {
+        console.error('❌ Referal qayta ishlash xatosi:', error)
+    }
 }
 
-// ==================== handleStart FUNKSIYASI ====================
 
 const handleStart = async (chatId, startParam = null) => {
 	try {
 		console.log(`🚀 Start command: chatId=${chatId}, param=${startParam}`)
 
 		let user = await User.findOne({ chatId })
+ if (!user) {
+		console.log(`✅ Yangi user yaratish: ${chatId}`)
 
-		if (!user) {
-			console.log(`✅ Yangi user yaratish: ${chatId}`)
-
-			const userData = {
-				chatId,
-				username: "Noma'lum",
-				fullName: 'Foydalanuvchi',
-				joinDate: new Date(),
-				isSubscribed: false,
-				referrals: 0,
-				points: 0,
-				lastActive: new Date(),
-				isAdmin: false,
-				referredUsers: []
-			}
-
-			if (startParam && !isNaN(parseInt(startParam)) && startParam !== chatId.toString()) {
-				console.log(`🔗 Referal havolasi bor: ${startParam}`)
-				userData.refBy = parseInt(startParam)
-			}
-
-			user = new User(userData)
-			await user.save()
-
-			console.log(`✅ Yangi user yaratildi: ${chatId}, refBy: ${startParam}`)
-
-			if (startParam && startParam !== chatId.toString() && !isNaN(parseInt(startParam))) {
-				console.log(`🔍 Referal jarayoni: ${startParam} -> ${chatId}`)
-
-				const referrer = await User.findOne({ chatId: parseInt(startParam) })
-
-				if (referrer) {
-					console.log(`✅ Referrer topildi: ${startParam}`)
-
-					if (referrer.isSubscribed) {
-						console.log(`✅ Referrer obuna bo'lgan, darhol bonus berish`)
-
-						referrer.referrals += 1
-						referrer.points += 10
-
-						referrer.referredUsers = referrer.referredUsers || []
-						referrer.referredUsers.push({
-							chatId: user.chatId,
-							username: user.username || "Noma'lum",
-							fullName: user.fullName || 'Foydalanuvchi',
-							joinDate: user.joinDate,
-							points: user.points || 0
-						})
-
-						user.points = 5
-						user.hasReceivedReferralBonus = true
-
-						await referrer.save()
-						await user.save()
-
-						console.log(`✅ Darhol referal bonus berildi: ${referrer.chatId} -> ${user.chatId}`)
-					} else {
-						console.log(`ℹ️ Referrer hali obuna bo'lmagan, faqat refBy ni saqlaymiz`)
-						user.refBy = parseInt(startParam)
-						await user.save()
-					}
-				} else {
-					console.log(`⚠️ Referrer topilmadi: ${startParam}`)
-					if (startParam && !isNaN(parseInt(startParam))) {
-						user.refBy = parseInt(startParam)
-						await user.save()
-					}
-				}
-			}
-		} else {
-			user.lastActive = new Date()
-			await user.save()
-
-			console.log(`ℹ️ Mavjud foydalanuvchi: ${chatId}`)
+		const userData = {
+			chatId,
+			username: "Noma'lum",
+			fullName: 'Foydalanuvchi',
+			joinDate: new Date(),
+			isSubscribed: false,
+			referrals: 0,
+			points: 0,
+			lastActive: new Date(),
+			isAdmin: false,
+			referredUsers: [],
+			hasReceivedReferralBonus: false // ❗ BU MAYDON QO'SHILDI
 		}
 
-		const subscriptionCheck = await checkSubscriptionRealTime(chatId)
-
-		if (!subscriptionCheck.userExists) {
-			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-			return
+		// Agar referal link orqali kirgan bo'lsa
+		if (startParam && !isNaN(parseInt(startParam)) && startParam !== chatId.toString()) {
+			console.log(`🔗 Referal havolasi bor: ${startParam}`)
+			userData.refBy = parseInt(startParam)
 		}
 
-		if (!subscriptionCheck.subscribed) {
-			console.log(`❌ ${chatId} obuna bo'lmagan, kanallarni ko'rsatish`)
-			await handleCheckSubscription(chatId)
-			return
-		}
+		user = new User(userData)
+		await user.save()
+
+		console.log(`✅ Yangi user yaratildi: ${chatId}, refBy: ${userData.refBy || "yo'q"}`)
+
+		// ❗ BU YERDA HEECH QANDAY BONUS BERMAYMIZ!
+		// Bonus faqat kanalga obuna bo'lgandan keyin beriladi
+ } else {
+		user.lastActive = new Date()
+		await user.save()
+		console.log(`ℹ️ Mavjud foydalanuvchi: ${chatId}`)
+ }
+
+ // Obuna holatini tekshirish
+ const subscriptionCheck = await checkSubscriptionRealTime(chatId)
+
+ if (!subscriptionCheck.userExists) {
+		await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+		return
+ }
+
+ if (!subscriptionCheck.subscribed) {
+		console.log(`❌ ${chatId} obuna bo'lmagan, kanallarni ko'rsatish`)
+		await handleCheckSubscription(chatId)
+		return
+ }
+
+ console.log(`✅ ${chatId} obuna bo'lgan, faol konkursni ko'rsatish`)
+ await showActiveContestWithReferral(chatId)
 
 		console.log(`✅ ${chatId} obuna bo'lgan, faol konkursni ko'rsatish`)
 		await showActiveContestWithReferral(chatId)
@@ -363,6 +429,73 @@ ${shortDescription}
 	}
 }
 
+// const handleJoinContest = async (chatId, contestId, referrerId) => {
+// 	try {
+// 		console.log(
+// 			`🎯 Konkursga qo'shilish: ${chatId}, contest: ${contestId}, referrer: ${referrerId}`
+// 		)
+
+// 		const contest = await Contest.findById(contestId)
+// 		if (!contest) {
+// 			await bot.sendMessage(chatId, '❌ Konkurs topilmadi.')
+// 			return
+// 		}
+
+// 		let user = await User.findOne({ chatId })
+// 		const isNewUser = !user
+
+// 		if (isNewUser) {
+// 			user = new User({
+// 				chatId: chatId,
+// 				username: "Noma'lum",
+// 				fullName: 'Foydalanuvchi',
+// 				joinDate: new Date(),
+// 				isSubscribed: false,
+// 				referrals: 0,
+// 				points: 0,
+// 				lastActive: new Date(),
+// 				isAdmin: false,
+// 				referredUsers: [],
+// 				refBy: parseInt(referrerId) || null
+// 			})
+// 			await user.save()
+// 			console.log(`✅ Yangi foydalanuvchi yaratildi: ${chatId}`)
+// 		}
+
+// 		if (referrerId && referrerId !== chatId.toString()) {
+// 			await processReferral(referrerId, user)
+// 		}
+
+// 		if (!contest.participants.includes(chatId)) {
+// 			contest.participants.push(chatId)
+// 			await contest.save()
+// 			console.log(`✅ ${chatId} konkursga qo'shildi`)
+// 		}
+
+// 		const successMessage = isNewUser
+// 			? `✅ Tabriklaymiz! Siz muvaffaqiyatli ro'yxatdan o'tdingiz va "${contest.name}" konkursiga qo'shildingiz!`
+// 			: `✅ Siz "${contest.name}" konkursiga muvaffaqiyatli qo'shildingiz!`
+
+// 		const inlineKeyboard = {
+// 			reply_markup: {
+// 				inline_keyboard: [
+// 					[
+// 						{
+// 							text: '🏠 Asosiy menyu',
+// 							callback_data: 'main_menu'
+// 						}
+// 					]
+// 				]
+// 			}
+// 		}
+
+// 		await bot.sendMessage(chatId, successMessage, inlineKeyboard)
+// 	} catch (error) {
+// 		console.error("❌ Konkursga qo'shilish xatosi:", error)
+// 		await bot.sendMessage(chatId, "❌ Konkursga qo'shilishda xatolik yuz berdi.")
+// 	}
+// }
+
 const handleJoinContest = async (chatId, contestId, referrerId) => {
 	try {
 		console.log(
@@ -390,13 +523,20 @@ const handleJoinContest = async (chatId, contestId, referrerId) => {
 				lastActive: new Date(),
 				isAdmin: false,
 				referredUsers: [],
-				refBy: parseInt(referrerId) || null
+				refBy: parseInt(referrerId) || null,
+				hasReceivedReferralBonus: false // ❗ BU MAYDON QO'SHILDI
 			})
 			await user.save()
 			console.log(`✅ Yangi foydalanuvchi yaratildi: ${chatId}`)
+
+			// ❗ BU YERDA HEECH QANDAY BONUS BERMAYMIZ!
+			// Bonus faqat kanalga obuna bo'lgandan keyin beriladi
 		}
 
+		// ❗ Eslatma: processReferral endi referrer obuna bo'lmagan bo'lsa,
+		// faqat refBy ni saqlaydi, bonus bermaydi
 		if (referrerId && referrerId !== chatId.toString()) {
+			console.log(`🔗 Referal jarayoni: ${referrerId} -> ${chatId}`)
 			await processReferral(referrerId, user)
 		}
 
@@ -447,14 +587,31 @@ const handleCheckSubscription = async chatId => {
 			await showMainMenu(chatId)
 			return
 		}
+		const subscriptionCheck = await checkSubscriptionRealTime(chatId)
+
+		if (subscriptionCheck.subscribed) {
+			console.log(`✅ Foydalanuvchi barcha kanallarga obuna bo'lgan`)
+			await showMainMenu(chatId)
+			return
+		}
+		 const channels = await Channel.find({
+				isActive: true,
+				requiresSubscription: true
+			})
+
+			await showChannelsForSubscriptionWithStatus(
+				chatId,
+				channels,
+				subscriptionCheck.notSubscribedChannels || []
+			)
 
 		const loadingMsg = await bot.sendMessage(chatId, '🔍 Kanallarga obuna holati tekshirilmoqda...')
 		console.log('📊 Yuklanish xabari yuborildi')
 
-		const channels = await Channel.find({
-			isActive: true,
-			requiresSubscription: true
-		})
+		// const channels = await Channel.find({
+		// 	isActive: true,
+		// 	requiresSubscription: true
+		// })
 
 		console.log(`📋 Tekshiriladigan kanallar soni: ${channels.length}`)
 
@@ -511,19 +668,29 @@ const handleCheckSubscription = async chatId => {
 
 		await bot.deleteMessage(chatId, loadingMsg.message_id)
 
-		if (allSubscribed) {
-			console.log(`✅ ${chatId} barcha kanallarga obuna bo'lgan`)
+        if (allSubscribed) {
+            console.log(`✅ ${chatId} barcha kanallarga obuna bo'lgan`)
 
-			user.isSubscribed = true
-			await user.save()
+            user.isSubscribed = true
+            await user.save()
 
-			await bot.sendMessage(
-				chatId,
-				`✅ Tabriklaymiz! Barcha ${channels.length} ta kanalga obuna bo'lgansiz! 🎉\n\n` +
-					`Endi botning barcha funksiyalaridan foydalanishingiz mumkin.`,
-				mainMenuKeyboard
-			)
-		} else {
+            // ❗ BARCHA KANALLARGA OBUNA BO'LGANDA REFERAL BONUS BERAMIZ
+            await awardReferralBonus(user)
+            
+            // ❗ PLUS: Agar bu foydalanuvchi referrer bo'lsa,
+            // bekorda qolgan takliflarini tekshirish
+            const hasReferrals = await User.exists({ refBy: user.chatId, hasReceivedReferralBonus: false })
+            if (hasReferrals) {
+                console.log(`🔍 Yangi obuna bo'lgan foydalanuvchining bekorda qolgan takliflari bor`)
+                await checkPendingReferrals(user)
+            }
+
+            await bot.sendMessage(
+                chatId,
+                `✅ <b>Tabriklaymiz!</b>\n\nSiz barcha ${channels.length} ta kanalga obuna bo'lgansiz! 🎉\n\n` +
+                `Endi botning barcha funksiyalaridan foydalanishingiz mumkin.`,
+                mainMenuKeyboard
+            )} else {
 			console.log(`❌ ${chatId} barcha kanallarga obuna bo'lmagan`)
 			await showChannelsForSubscriptionWithStatus(chatId, channels, notSubscribedChannels)
 		}
@@ -589,23 +756,162 @@ const showChannelsForSubscriptionWithStatus = async (chatId, channels, notSubscr
 	}
 }
 
+// const handleConfirmSubscription = async chatId => {
+// 	try {
+// 		console.log(`🔍 Obuna tasdiqlash boshlanmoqda: ${chatId}`)
+
+// 		const user = await User.findOne({ chatId })
+
+// 		if (!user) {
+// 			console.log('❌ Foydalanuvchi topilmadi')
+// 			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+// 			return
+// 		}
+
+// 		if (user.isSubscribed) {
+// 			console.log("ℹ️ Foydalanuvchi allaqachon obuna bo'lgan")
+// 			await bot.sendMessage(chatId, "✅ Siz allaqachon obuna bo'lgansiz!", mainMenuKeyboard)
+// 			return
+// 		}
+
+// 		const loadingMsg = await bot.sendMessage(chatId, '🔍 Obuna holatingiz tekshirilmoqda...')
+
+// 		const channels = await Channel.find({
+// 			isActive: true,
+// 			requiresSubscription: true
+// 		})
+
+// 		console.log(`📋 Kanallar soni: ${channels.length}`)
+
+// 		if (channels.length === 0) {
+// 			await bot.deleteMessage(chatId, loadingMsg.message_id)
+// 			user.isSubscribed = true
+// 			await user.save()
+
+// 			await awardReferralBonus(user)
+
+// 			await bot.sendMessage(
+// 				chatId,
+// 				"✅ Majburiy kanallar yo'q. Obuna holatingiz tasdiqlandi!",
+// 				mainMenuKeyboard
+// 			)
+// 			return
+// 		}
+
+// 		let allSubscribed = true
+// 		let notSubscribedChannels = []
+
+// 		for (const channel of channels) {
+// 			try {
+// 				if (channel.channelId) {
+// 					const channelIdNum = channel.channelId.startsWith('-100')
+// 						? channel.channelId
+// 						: `-100${channel.channelId}`
+
+// 					const chatMember = await bot.getChatMember(channelIdNum, chatId)
+// 					const isMember = ['member', 'administrator', 'creator'].includes(chatMember.status)
+
+// 					console.log(`📊 ${channel.name} holati: ${chatMember.status}`)
+
+// 					if (!isMember) {
+// 						allSubscribed = false
+// 						notSubscribedChannels.push({
+// 							name: channel.name,
+// 							link: channel.link
+// 						})
+// 					}
+// 				}
+// 			} catch (error) {
+// 				console.error(`❌ Kanal tekshirish xatosi (${channel.name}):`, error.message)
+// 				allSubscribed = false
+// 				notSubscribedChannels.push({
+// 					name: channel.name,
+// 					link: channel.link,
+// 					error: true
+// 				})
+// 			}
+// 		}
+
+// 		await bot.deleteMessage(chatId, loadingMsg.message_id)
+
+// 		if (allSubscribed) {
+// 			console.log(`✅ ${chatId} barcha kanallarga obuna bo'lgan`)
+
+// 			user.isSubscribed = true
+// 			await user.save()
+
+// 			await awardReferralBonus(user)
+
+// 			await bot.sendMessage(
+// 				chatId,
+// 				`✅ <b>Tabriklaymiz!</b>\n\nSiz barcha ${channels.length} ta kanalga obuna bo'lgansiz! 🎉\n\n` +
+// 					`Endi botning barcha funksiyalaridan foydalanishingiz mumkin.`,
+// 				mainMenuKeyboard
+// 			)
+// 		} else {
+// 			console.log(`❌ ${chatId} barcha kanallarga obuna bo'lmagan`)
+
+// 			let message = `❌ Siz barcha kanallarga obuna bo'lmagansiz!\n\n`
+// 			message += `<b>Holat:</b> ${channels.length - notSubscribedChannels.length}/${
+// 				channels.length
+// 			} kanalga obuna bo'lgansiz\n\n`
+// 			message += `<b>Obuna bo'lmagan kanallar:</b>\n\n`
+
+// 			notSubscribedChannels.forEach((channel, index) => {
+// 				message += `${index + 1}. ${channel.name}\n`
+// 				if (channel.link) {
+// 					message += `   ${channel.link}\n`
+// 				}
+// 				if (channel.error) {
+// 					message += `   ⚠️ Tekshirish xatosi\n`
+// 				}
+// 				message += '\n'
+// 			})
+
+// 			message += `Iltimos, yuqoridagi kanallarga obuna bo'ling va "🔄 Qayta tekshirish" tugmasini bosing.`
+
+// 			const inline_keyboard = notSubscribedChannels.map(channel => [
+// 				{ text: `📺 ${channel.name} ga o'tish`, url: channel.link || '#' }
+// 			])
+
+// 			inline_keyboard.push([{ text: '🔄 Qayta tekshirish', callback_data: 'check_subscription' }])
+
+// 			await bot.sendMessage(chatId, message, {
+// 				parse_mode: 'HTML',
+// 				reply_markup: { inline_keyboard }
+// 			})
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ Obuna tasdiqlash xatosi:', error)
+// 		await bot.sendMessage(chatId, '❌ Obuna tekshirishda xatolik yuz berdi')
+// 	}
+// }
+
 const handleConfirmSubscription = async chatId => {
 	try {
 		console.log(`🔍 Obuna tasdiqlash boshlanmoqda: ${chatId}`)
+const user = await User.findOne({ chatId })
 
-		const user = await User.findOne({ chatId })
+if (!user) {
+	console.log('❌ Foydalanuvchi topilmadi')
+	await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
+	return
+}
 
-		if (!user) {
-			console.log('❌ Foydalanuvchi topilmadi')
-			await bot.sendMessage(chatId, '❌ Foydalanuvchi topilmadi.')
-			return
-		}
+if (user.isSubscribed) {
+	console.log("ℹ️ Foydalanuvchi allaqachon obuna bo'lgan")
 
-		if (user.isSubscribed) {
-			console.log("ℹ️ Foydalanuvchi allaqachon obuna bo'lgan")
-			await bot.sendMessage(chatId, "✅ Siz allaqachon obuna bo'lgansiz!", mainMenuKeyboard)
-			return
-		}
+	// ❗ Foydalanuvchi obuna bo'lganda, agar u referrer bo'lsa
+	// bekorda qolgan takliflarini tekshirish
+	const hasReferrals = await User.exists({ refBy: user.chatId, hasReceivedReferralBonus: false })
+	if (hasReferrals) {
+		console.log(`🔍 Foydalanuvchining bekorda qolgan takliflari bor`)
+		await checkPendingReferrals(user)
+	}
+
+	await bot.sendMessage(chatId, "✅ Siz allaqachon obuna bo'lgansiz!", mainMenuKeyboard)
+	return
+}
 
 		const loadingMsg = await bot.sendMessage(chatId, '🔍 Obuna holatingiz tekshirilmoqda...')
 
@@ -615,12 +921,14 @@ const handleConfirmSubscription = async chatId => {
 		})
 
 		console.log(`📋 Kanallar soni: ${channels.length}`)
+		
 
 		if (channels.length === 0) {
 			await bot.deleteMessage(chatId, loadingMsg.message_id)
 			user.isSubscribed = true
 			await user.save()
 
+			// ❗ KANALLAR YO'Q BO'LSA HAM REFERAL BONUS BERAMIZ
 			await awardReferralBonus(user)
 
 			await bot.sendMessage(
@@ -673,6 +981,7 @@ const handleConfirmSubscription = async chatId => {
 			user.isSubscribed = true
 			await user.save()
 
+			// ❗ BARCHA KANALLARGA OBUNA BO'LGANDA REFERAL BONUS BERAMIZ
 			await awardReferralBonus(user)
 
 			await bot.sendMessage(
@@ -722,23 +1031,124 @@ const handleConfirmSubscription = async chatId => {
 
 // ==================== awardReferralBonus FUNKSIYASI ====================
 
+// const awardReferralBonus = async user => {
+// 	try {
+// 		console.log(`💰 Referal bonus tekshirish: ${user.chatId}`)
+
+// 		if (user.refBy && !user.hasReceivedReferralBonus) {
+// 			console.log(`🔍 Referrer qidirilmoqda: ${user.refBy}`)
+
+// 			const referrer = await User.findOne({ chatId: user.refBy })
+
+// 			if (referrer && referrer.isSubscribed) {
+// 				console.log(`✅ Referrer topildi va obuna bo'lgan: ${referrer.chatId}`)
+
+// 				referrer.points += 10
+// 				referrer.referrals += 1
+
+// 				referrer.referredUsers = referrer.referredUsers || []
+
+// 				const alreadyExists = referrer.referredUsers.find(ref => ref.chatId === user.chatId)
+// 				if (!alreadyExists) {
+// 					referrer.referredUsers.push({
+// 						chatId: user.chatId,
+// 						username: user.username || "Noma'lum",
+// 						fullName: user.fullName || 'Foydalanuvchi',
+// 						joinDate: user.joinDate,
+// 						points: user.points || 0
+// 					})
+// 				}
+
+// 				user.points += 5
+// 				user.hasReceivedReferralBonus = true
+
+// 				await referrer.save()
+// 				await user.save()
+
+// 				console.log(`✅ Referal bonus berildi: ${referrer.chatId} -> ${user.chatId}`)
+
+// 				try {
+// 					await bot.sendMessage(
+// 						referrer.chatId,
+// 						`🎉 <b>Yangi taklif bonus!</b>\n\n` +
+// 							`<b>Sizning taklif havolangiz orqali ${user.fullName} botdan foydalanishni boshladi!</b>\n\n` +
+// 							`💰 <b>Sizga 10 ball berildi!</b>\n` +
+// 							`🎁 <b>${user.fullName} ga 5 ball berildi!</b>\n` +
+// 							`📊 <b>Sizning ballaringiz:</b> ${referrer.points}\n` +
+// 							`👥 <b>Jami takliflar:</b> ${referrer.referredUsers.length} ta`,
+// 						{ parse_mode: 'HTML' }
+// 					)
+// 				} catch (error) {
+// 					console.log('⚠️ Taklif qilgan foydalanuvchiga xabar yuborishda xato:', error.message)
+// 				}
+
+// 				try {
+// 					await bot.sendMessage(
+// 						user.chatId,
+// 						`🎁 <b>Referal bonus!</b>\n\n` +
+// 							`Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n\n` +
+// 							`💰 Sizga 5 ball berildi!\n` +
+// 							`📊 Sizning ballaringiz: ${user.points}\n\n` +
+// 							`Do'stlaringizni taklif qiling va ko'proq ball to'plang!`,
+// 						{ parse_mode: 'HTML' }
+// 					)
+// 				} catch (error) {
+// 					console.log('⚠️ Taklif qilingan foydalanuvchiga xabar yuborishda xato:', error.message)
+// 				}
+// 			} else {
+// 				console.log(`⚠️ Referrer topilmadi yoki obuna bo'lmagan: ${user.refBy}`)
+// 			}
+// 		} else {
+// 			console.log(`ℹ️ Referal bonus kerak emas: ${user.chatId}`)
+// 			console.log(`  - refBy: ${user.refBy}`)
+// 			console.log(`  - hasReceivedReferralBonus: ${user.hasReceivedReferralBonus}`)
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ Referal bonus berish xatosi:', error)
+// 	}
+// }
+
 const awardReferralBonus = async user => {
 	try {
 		console.log(`💰 Referal bonus tekshirish: ${user.chatId}`)
+		console.log(`  - isSubscribed: ${user.isSubscribed}`)
+		console.log(`  - hasReceivedReferralBonus: ${user.hasReceivedReferralBonus}`)
+		console.log(`  - refBy: ${user.refBy}`)
 
-		if (user.refBy && !user.hasReceivedReferralBonus) {
+		// ✅ MUHIM SHARTLAR:
+		// 1. User obuna bo'lishi kerak
+		// 2. Bonus olmagan bo'lishi kerak
+		// 3. refBy bo'lishi kerak
+		// 4. Referrer obuna bo'lishi kerak
+		if (user.isSubscribed && !user.hasReceivedReferralBonus && user.refBy) {
 			console.log(`🔍 Referrer qidirilmoqda: ${user.refBy}`)
 
 			const referrer = await User.findOne({ chatId: user.refBy })
 
-			if (referrer && referrer.isSubscribed) {
-				console.log(`✅ Referrer topildi va obuna bo'lgan: ${referrer.chatId}`)
+			if (referrer) {
+				console.log(`✅ Referrer topildi: ${referrer.chatId}`)
+				console.log(`  - Referrer isSubscribed: ${referrer.isSubscribed}`)
 
+				// ❗ REFERRER HAM OBUNA BO'LISHI KERAK
+				if (!referrer.isSubscribed) {
+					console.log(`❌ Referrer obuna bo'lmagan: ${referrer.chatId}`)
+
+					// Referrer obuna bo'lmagan, bonus BERILMAYDI
+					// refBy ni saqlab qo'yamiz, lekin hech narsa qilmaymiz
+					user.refBy = user.refBy // Faqat saqlab qo'yamiz
+					await user.save()
+
+					console.log(`ℹ️ Referrer obuna bo'lmaganligi uchun bonus berilmadi`)
+					return
+				}
+
+				// ✅ IKKALASI HAM OBUNA BO'LSA
 				referrer.points += 10
 				referrer.referrals += 1
 
 				referrer.referredUsers = referrer.referredUsers || []
 
+				// Taklif qilinganlar ro'yxatida bor-yo'qligini tekshirish
 				const alreadyExists = referrer.referredUsers.find(ref => ref.chatId === user.chatId)
 				if (!alreadyExists) {
 					referrer.referredUsers.push({
@@ -750,6 +1160,7 @@ const awardReferralBonus = async user => {
 					})
 				}
 
+				// User uchun bonus
 				user.points += 5
 				user.hasReceivedReferralBonus = true
 
@@ -758,47 +1169,42 @@ const awardReferralBonus = async user => {
 
 				console.log(`✅ Referal bonus berildi: ${referrer.chatId} -> ${user.chatId}`)
 
+				// XABARLARNI YUBORISH
 				try {
 					await bot.sendMessage(
 						referrer.chatId,
-						`🎉 <b>Yangi taklif bonus!</b>\n\n` +
-							`<b>Sizning taklif havolangiz orqali ${user.fullName} botdan foydalanishni boshladi!</b>\n\n` +
+						`🎉 <b>Bekor qilingan taklif bonus!</b>\n\n` +
+							`<b>${user.fullName} obuna bo'ldi va sizning taklif havolangiz orqali edi!</b>\n\n` +
 							`💰 <b>Sizga 10 ball berildi!</b>\n` +
 							`🎁 <b>${user.fullName} ga 5 ball berildi!</b>\n` +
-							`📊 <b>Sizning ballaringiz:</b> ${referrer.points}\n` +
-							`👥 <b>Jami takliflar:</b> ${referrer.referredUsers.length} ta`,
+							`📊 <b>Sizning ballaringiz:</b> ${referrer.points}`,
 						{ parse_mode: 'HTML' }
 					)
 				} catch (error) {
-					console.log('⚠️ Taklif qilgan foydalanuvchiga xabar yuborishda xato:', error.message)
+					console.log('⚠️ Referrer ga xabar yuborishda xato:', error.message)
 				}
 
 				try {
 					await bot.sendMessage(
 						user.chatId,
-						`🎁 <b>Referal bonus!</b>\n\n` +
-							`Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n\n` +
+						`🎁 <b>Bekor qilingan taklif bonus!</b>\n\n` +
+							`Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n` +
+							`Siz obuna bo'lgach, referal bonusingiz berildi!\n\n` +
 							`💰 Sizga 5 ball berildi!\n` +
-							`📊 Sizning ballaringiz: ${user.points}\n\n` +
-							`Do'stlaringizni taklif qiling va ko'proq ball to'plang!`,
+							`📊 Sizning ballaringiz: ${user.points}`,
 						{ parse_mode: 'HTML' }
 					)
 				} catch (error) {
-					console.log('⚠️ Taklif qilingan foydalanuvchiga xabar yuborishda xato:', error.message)
+					console.log('⚠️ User ga xabar yuborishda xato:', error.message)
 				}
-			} else {
-				console.log(`⚠️ Referrer topilmadi yoki obuna bo'lmagan: ${user.refBy}`)
 			}
 		} else {
 			console.log(`ℹ️ Referal bonus kerak emas: ${user.chatId}`)
-			console.log(`  - refBy: ${user.refBy}`)
-			console.log(`  - hasReceivedReferralBonus: ${user.hasReceivedReferralBonus}`)
 		}
 	} catch (error) {
 		console.error('❌ Referal bonus berish xatosi:', error)
 	}
 }
-
 // ==================== TAKLIF QILINGAN DO'STLAR ====================
 
 const showReferredFriends = async chatId => {
@@ -2523,6 +2929,101 @@ const handleCallback = async (chatId, callbackData) => {
 
 // ==================== REAL-TIME OBUNA TEKSHIRISH ====================
 
+// const checkSubscriptionRealTime = async chatId => {
+// 	try {
+// 		console.log(`🔍 Real-time obuna tekshirish: ${chatId}`)
+
+// 		const user = await User.findOne({ chatId })
+
+// 		if (!user) {
+// 			return {
+// 				subscribed: false,
+// 				userExists: false,
+// 				message: 'Foydalanuvchi topilmadi'
+// 			}
+// 		}
+
+// 		const channels = await Channel.find({
+// 			isActive: true,
+// 			requiresSubscription: true
+// 		})
+
+// 		console.log(`📋 Real-time tekshiriladigan kanallar soni: ${channels.length}`)
+
+// 		if (channels.length === 0) {
+// 			return {
+// 				subscribed: true,
+// 				userExists: true,
+// 				user: user,
+// 				message: "Majburiy kanallar yo'q"
+// 			}
+// 		}
+
+// 		let allSubscribed = true
+// 		let notSubscribedChannels = []
+
+// 		for (const channel of channels) {
+// 			try {
+// 				if (channel.channelId) {
+// 					const channelIdNum = channel.channelId.startsWith('-100')
+// 						? channel.channelId
+// 						: `-100${channel.channelId}`
+
+// 					const chatMember = await bot.getChatMember(channelIdNum, chatId)
+// 					const isMember = ['member', 'administrator', 'creator'].includes(chatMember.status)
+
+// 					console.log(`📊 ${channel.name} holati: ${chatMember.status}`)
+
+// 					if (!isMember) {
+// 						allSubscribed = false
+// 						notSubscribedChannels.push({
+// 							name: channel.name,
+// 							link: channel.link
+// 						})
+// 					}
+// 				}
+// 			} catch (error) {
+// 				console.error(`❌ Kanal tekshirish xatosi (${channel.name}):`, error.message)
+// 				allSubscribed = false
+// 				notSubscribedChannels.push({
+// 					name: channel.name,
+// 					link: channel.link,
+// 					error: true
+// 				})
+// 			}
+// 		}
+
+// 		const wasSubscribed = user.isSubscribed
+// 		user.isSubscribed = allSubscribed
+
+// 		if (allSubscribed && !wasSubscribed) {
+// 			await awardReferralBonus(user)
+// 		}
+
+// 		await user.save()
+
+// 		return {
+// 			subscribed: allSubscribed,
+// 			userExists: true,
+// 			user: user,
+// 			wasSubscribed: wasSubscribed,
+// 			notSubscribedChannels: notSubscribedChannels,
+// 			message: allSubscribed
+// 				? `✅ Barcha ${channels.length} ta kanalga obuna bo'lgansiz!`
+// 				: `❌ ${channels.length - notSubscribedChannels.length}/${
+// 						channels.length
+// 				  } kanalga obuna bo'lgansiz`
+// 		}
+// 	} catch (error) {
+// 		console.error('❌ Real-time obuna tekshirish xatosi:', error)
+// 		return {
+// 			subscribed: false,
+// 			error: true,
+// 			message: 'Obuna tekshirishda xatolik yuz berdi'
+// 		}
+// 	}
+// }
+
 const checkSubscriptionRealTime = async chatId => {
 	try {
 		console.log(`🔍 Real-time obuna tekshirish: ${chatId}`)
@@ -2545,6 +3046,17 @@ const checkSubscriptionRealTime = async chatId => {
 		console.log(`📋 Real-time tekshiriladigan kanallar soni: ${channels.length}`)
 
 		if (channels.length === 0) {
+			// KANALLAR YO'Q BO'LSA
+			const wasSubscribed = user.isSubscribed
+			user.isSubscribed = true
+
+			// Agar avval obuna bo'lmagan bo'lsa va endi obuna bo'lsa
+			if (!wasSubscribed && user.isSubscribed) {
+				await awardReferralBonus(user)
+			}
+
+			await user.save()
+
 			return {
 				subscribed: true,
 				userExists: true,
@@ -2590,7 +3102,9 @@ const checkSubscriptionRealTime = async chatId => {
 		const wasSubscribed = user.isSubscribed
 		user.isSubscribed = allSubscribed
 
-		if (allSubscribed && !wasSubscribed) {
+		// ❗ MUHIM: FAQAT OBUNA HOLATI O'ZGARSA (avval obuna bo'lmagan, hozir bo'lgan)
+		if (!wasSubscribed && allSubscribed) {
+			console.log(`🎉 Foydalanuvchi yangi obuna bo'ldi, referal bonus tekshiriladi`)
 			await awardReferralBonus(user)
 		}
 
@@ -2982,6 +3496,98 @@ function formatDate(date) {
 	return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1)
 		.toString()
 		.padStart(2, '0')}.${d.getFullYear()}`
+}
+
+// ==================== REFERRER OBUNA BO'LGANDA ESKI TAKLIFLAR UCHUN BONUS ====================
+
+const checkPendingReferrals = async referrer => {
+    try {
+        console.log(`🔍 Bekor qilingan referrallar tekshirilmoqda: ${referrer.chatId}`)
+
+        // Bu referrer orqali kelgan lekin hali bonus olmagan userlarni topish
+        const pendingUsers = await User.find({
+            refBy: referrer.chatId,
+            hasReceivedReferralBonus: false,
+            isSubscribed: true
+        })
+
+        console.log(`📊 Bekor qilingan referrallar soni: ${pendingUsers.length}`)
+
+        let totalBonus = 0
+        for (const pendingUser of pendingUsers) {
+            try {
+                // Referrer va user uchun bonus berish
+                referrer.points += 10
+                referrer.referrals += 1
+
+                referrer.referredUsers = referrer.referredUsers || []
+                
+                // Taklif qilinganlar ro'yxatida bor-yo'qligini tekshirish
+                const alreadyExists = referrer.referredUsers.find(ref => ref.chatId === pendingUser.chatId)
+                if (!alreadyExists) {
+                    referrer.referredUsers.push({
+                        chatId: pendingUser.chatId,
+                        username: pendingUser.username || "Noma'lum",
+                        fullName: pendingUser.fullName || 'Foydalanuvchi',
+                        joinDate: pendingUser.joinDate,
+                        points: pendingUser.points || 0
+                    })
+                }
+
+                // User uchun 5 ball
+                pendingUser.points += 5
+                pendingUser.hasReceivedReferralBonus = true
+
+                await pendingUser.save()
+                totalBonus += 10
+
+                console.log(`✅ Bekor qilingan referal berildi: ${referrer.chatId} -> ${pendingUser.chatId}`)
+
+                // Xabarlarni yuborish
+                try {
+                    await bot.sendMessage(
+                        referrer.chatId,
+                        `🎉 <b>Bekor qilingan taklif bonus!</b>\n\n` +
+                        `<b>Sizning taklif havolangiz orqali ${pendingUser.fullName} avval ro'yxatdan o'tgan edi!</b>\n\n` +
+                        `💰 <b>Sizga 10 ball berildi!</b>\n` +
+                        `🎁 <b>${pendingUser.fullName} ga 5 ball berildi!</b>\n` +
+                        `📊 <b>Sizning ballaringiz:</b> ${referrer.points}\n`,
+                        { parse_mode: 'HTML' }
+                    )
+                } catch (error) {
+                    console.log('⚠️ Bekor qilingan referal xabarini yuborishda xato:', error.message)
+                }
+
+                try {
+                    await bot.sendMessage(
+                        pendingUser.chatId,
+                        `🎁 <b>Bekor qilingan referal bonus!</b>\n\n` +
+                        `Siz ${referrer.fullName} tomonidan taklif qilingansiz!\n` +
+                        `U endigina obuna bo'ldi va sizga bonus berildi!\n\n` +
+                        `💰 Sizga 5 ball berildi!\n` +
+                        `📊 Sizning ballaringiz: ${pendingUser.points}\n\n` +
+                        `Do'stlaringizni taklif qiling va ko'proq ball to'plang!`,
+                        { parse_mode: 'HTML' }
+                    )
+                } catch (error) {
+                    console.log('⚠️ Bekor qilingan referal foydalanuvchiga xabar yuborishda xato:', error.message)
+                }
+
+            } catch (error) {
+                console.error(`❌ Bekor qilingan referalni qayta ishlash xatosi:`, error)
+            }
+        }
+
+        if (totalBonus > 0) {
+            await referrer.save()
+            console.log(`✅ Jami ${totalBonus} ball bekor qilingan referrallar uchun berildi`)
+        }
+
+        return totalBonus
+    } catch (error) {
+        console.error('❌ Bekor qilingan referrallarni tekshirish xatosi:', error)
+        return 0
+    }
 }
 
 module.exports = {
